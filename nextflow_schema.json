@@ -1,0 +1,90 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/local/nanopore-snp-phylo/main/nextflow_schema.json",
+    "title": "nanopore-snp-phylo pipeline parameters",
+    "description": "Pipeline SNP et phylogénie pour Nanopore MinION - compatible EPI2ME",
+    "type": "object",
+    "definitions": {
+        "input_output_options": {
+            "title": "Entrées / Sorties",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Définir les chemins d'entrée et de sortie du pipeline.",
+            "required": ["fastq_dir"],
+            "properties": {
+                "fastq_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier contenant les fichiers FASTQ (un sous-dossier par échantillon, ou FASTQ directement).",
+                    "fa_icon": "fas fa-folder-open"
+                },
+                "reference": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Génome de référence au format FASTA (optionnel, requis pour Snippy).",
+                    "fa_icon": "fas fa-dna"
+                },
+                "outdir": {
+                    "type": "string",
+                    "description": "Dossier de sortie des résultats.",
+                    "default": "results",
+                    "fa_icon": "fas fa-folder"
+                }
+            }
+        },
+        "filtering_options": {
+            "title": "Filtrage des reads",
+            "type": "object",
+            "fa_icon": "fas fa-filter",
+            "description": "Paramètres de filtrage NanoFilt.",
+            "properties": {
+                "min_length": {
+                    "type": "integer",
+                    "description": "Longueur minimale des reads en paires de bases.",
+                    "default": 1000,
+                    "minimum": 100,
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "min_quality": {
+                    "type": "integer",
+                    "description": "Score de qualité minimum (Phred) des reads.",
+                    "default": 10,
+                    "minimum": 1,
+                    "maximum": 30,
+                    "fa_icon": "fas fa-signal"
+                }
+            }
+        },
+        "assembly_options": {
+            "title": "Assemblage et polissage",
+            "type": "object",
+            "fa_icon": "fas fa-cogs",
+            "description": "Paramètres pour Flye et Medaka.",
+            "properties": {
+                "genome_size": {
+                    "type": "string",
+                    "description": "Taille estimée du génome pour Flye (ex: 5m pour 5 Mb, 2.5m pour 2.5 Mb).",
+                    "default": "5m",
+                    "fa_icon": "fas fa-expand-arrows-alt"
+                },
+                "medaka_model": {
+                    "type": "string",
+                    "description": "Modèle Medaka selon la flowcell et le kit utilisés.",
+                    "default": "r941_min_high_g360",
+                    "enum": [
+                        "r941_min_high_g360",
+                        "r941_min_sup_g507",
+                        "r1041_e82_400bps_hac_g632",
+                        "r1041_e82_400bps_sup_g632"
+                    ],
+                    "fa_icon": "fas fa-sliders-h"
+                }
+            }
+        }
+    },
+    "allOf": [
+        { "$ref": "#/definitions/input_output_options" },
+        { "$ref": "#/definitions/filtering_options" },
+        { "$ref": "#/definitions/assembly_options" }
+    ]
+}
