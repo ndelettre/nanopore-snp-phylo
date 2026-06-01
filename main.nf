@@ -27,7 +27,8 @@ params.outdir       = "results"     // Dossier de sortie
 params.min_length   = 1000          // Longueur minimale des reads (NanoFilt)
 params.min_quality  = 10            // Qualité minimale des reads (NanoFilt)
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
-params.medaka_model = "r941_min_high_g360"  // Modèle Medaka selon ta flowcell
+params.medaka_model = "r1041_e82_400bps_sup_v5.0.0"  // Modèle Medaka selon ta flowcell
+params.bootstrap = true
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LEÇON : On importe les modules depuis le dossier modules/.
