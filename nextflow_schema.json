@@ -1,6 +1,6 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema",
-    "$id": "https://raw.githubusercontent.com/local/nanopore-snp-phylo/main/nextflow_schema.json",
+    "$id": "https://raw.githubusercontent.com/ndelettre/nanopore-snp-phylo/main/nextflow_schema.json",
     "title": "nanopore-snp-phylo pipeline parameters",
     "description": "Pipeline SNP et phylogénie pour Nanopore MinION - compatible EPI2ME",
     "type": "object",
@@ -70,27 +70,37 @@
                 "medaka_model": {
                     "type": "string",
                     "description": "Modèle Medaka selon la flowcell et le kit utilisés.",
-                    "default": "r941_min_high_g360",
+                    "default": "r1041_e82_400bps_hac_g632",
                     "enum": [
                         "r941_min_high_g360",
                         "r941_min_sup_g507",
                         "r1041_e82_400bps_hac_g632",
-                        "r1041_e82_400bps_sup_g632"
+                        "r1041_e82_400bps_sup_g632",
+                        "r1041_e82_400bps_sup_v5.0.0"
                     ],
                     "fa_icon": "fas fa-sliders-h"
                 }
             }
+        },
+        "phylogeny_options": {
+            "title": "Phylogénie",
+            "type": "object",
+            "fa_icon": "fas fa-tree",
+            "description": "Paramètres pour IQ-TREE.",
+            "properties": {
+                "bootstrap": {
+                    "type": "boolean",
+                    "description": "Activer le bootstrap IQ-TREE (nécessite ≥4 souches).",
+                    "default": true,
+                    "fa_icon": "fas fa-tree"
+                }
+            }
         }
-        "bootstrap": {
-    "type": "boolean",
-    "description": "Activer le bootstrap IQ-TREE (nécessite ≥4 souches).",
-    "default": true,
-    "fa_icon": "fas fa-tree"
-}
     },
     "allOf": [
         { "$ref": "#/definitions/input_output_options" },
         { "$ref": "#/definitions/filtering_options" },
-        { "$ref": "#/definitions/assembly_options" }
+        { "$ref": "#/definitions/assembly_options" },
+        { "$ref": "#/definitions/phylogeny_options" }
     ]
 }
