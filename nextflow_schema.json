@@ -81,6 +81,12 @@
                 }
             }
         }
+        "bootstrap": {
+    "type": "boolean",
+    "description": "Activer le bootstrap IQ-TREE (nécessite ≥4 souches).",
+    "default": true,
+    "fa_icon": "fas fa-tree"
+}
     },
     "allOf": [
         { "$ref": "#/definitions/input_output_options" },
