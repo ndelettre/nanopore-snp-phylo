@@ -11,7 +11,7 @@
 process MEDAKA {
 
     tag "${sample_id}"
-    label 'process_medium'
+    label 'process_low'
 
     publishDir "${params.outdir}/medaka/${sample_id}", mode: 'copy'
 
