@@ -7,7 +7,7 @@
 process FLYE {
 
     tag "${sample_id}"
-    label 'process_high'   // Flye est gourmand en CPU/RAM → label 'high'
+    label 'process_medium'   // Flye est gourmand en CPU/RAM → label 'high'
 
     publishDir "${params.outdir}/flye/${sample_id}", mode: 'copy'
 
