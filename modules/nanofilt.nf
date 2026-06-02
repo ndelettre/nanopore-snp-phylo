@@ -25,7 +25,7 @@ process NANOFILT {
     //              "mode: 'copy'" copie le fichier (vs 'symlink' qui crée un lien)
     // ─────────────────────────────────────────────────────────────────────────
     tag "${sample_id}"
-    label 'process_low'
+    label 'process_mono'
 
     publishDir "${params.outdir}/nanofilt/${sample_id}", mode: 'copy'
 
