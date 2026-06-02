@@ -18,7 +18,7 @@
 process NANOSTAT {
 
     tag "${sample_id}"
-    label 'process_low'
+    label 'process_mono'
 
     publishDir "${params.outdir}/nanostat/${sample_id}", mode: 'copy'
 
