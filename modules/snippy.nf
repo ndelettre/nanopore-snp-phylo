@@ -11,7 +11,7 @@
 process SNIPPY {
 
     tag "${sample_id}"
-    label 'process_medium'
+    label 'process_high'
 
     publishDir "${params.outdir}/snippy/${sample_id}", mode: 'copy'
 
