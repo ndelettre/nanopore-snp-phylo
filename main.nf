@@ -47,6 +47,7 @@ include { KSNP4 }     from './modules/ksnp4.nf'
 include { SNIPPY }    from './modules/snippy.nf'
 include { IQTREE }    from './modules/iqtree.nf'
 include { MULTIQC }   from './modules/multiqc.nf'
+include { QUALIMAP }  from './modules/qualimap.nf'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LEÇON : La fonction "log.info" affiche un message au démarrage du pipeline.
@@ -164,6 +165,8 @@ workflow {
     ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
     MEDAKA(ch_medaka_input)
 
+    QUALIMAP(MEDAKA.out.bam)
+
     // ─────────────────────────────────────────────────────────────────────────
     // ÉTAPE 5 : kSNP4 sur tous les assemblages polishés
     // kSNP4 prend TOUS les génomes en même temps (pas échantillon par échantillon).
@@ -210,6 +213,7 @@ workflow {
     // ─────────────────────────────────────────────────────────────────────────
     ch_multiqc_files = NANOSTAT.out.stats
         .mix(FLYE.out.stats)
+        .mix(QUALIMAP.out.stats)
         .collect()
 
     MULTIQC(ch_multiqc_files)
