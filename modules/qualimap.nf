@@ -9,7 +9,6 @@ process QUALIMAP {
 
     output:
     path "${sample_id}_qualimap/",                              emit: results
-    path "${sample_id}_qualimap/genome_results.txt",            emit: stats
 
     script:
     """
