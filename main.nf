@@ -213,7 +213,7 @@ workflow {
     // ─────────────────────────────────────────────────────────────────────────
     ch_multiqc_files = NANOSTAT.out.stats
         .mix(FLYE.out.stats)
-        .mix(QUALIMAP.out.stats)
+        .mix(QUALIMAP.out.results)
         .collect()
 
     MULTIQC(ch_multiqc_files)
