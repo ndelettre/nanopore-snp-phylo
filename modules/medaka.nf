@@ -27,6 +27,7 @@ process MEDAKA {
 
     output:
     tuple val(sample_id), path("${sample_id}_polished.fasta"), emit: assembly
+    tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: bam
 
     script:
     // ─────────────────────────────────────────────────────────────────────────
@@ -54,5 +55,9 @@ process MEDAKA {
 
     # Renommage du consensus final
     cp medaka_output/consensus.fasta ${sample_id}_polished.fasta
+
+    # Exposer le BAM du polishing pour Qualimap
+    cp medaka_output/calls_to_draft.bam     ${sample_id}.bam
+    cp medaka_output/calls_to_draft.bam.bai ${sample_id}.bam.bai
     """
 }
