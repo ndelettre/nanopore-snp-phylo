@@ -48,6 +48,7 @@ include { SNIPPY }    from './modules/snippy.nf'
 include { IQTREE }    from './modules/iqtree.nf'
 include { MULTIQC }   from './modules/multiqc.nf'
 include { QUALIMAP }  from './modules/qualimap.nf'
+include { PHYLO_REPORT } from './modules/phylo_report.nf'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LEÇON : La fonction "log.info" affiche un message au démarrage du pipeline.
