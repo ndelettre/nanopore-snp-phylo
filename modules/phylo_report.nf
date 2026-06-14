@@ -10,40 +10,24 @@
 ========================================================================================
 */
 process PHYLO_REPORT {
+    tag "${report_name}"
     label 'process_low'
 
     publishDir "${params.outdir}/phylo_report", mode: 'copy'
-    publishDir "${params.outdir}",              mode: 'copy', pattern: "report_all_snps.html"
+    publishDir "${params.outdir}",              mode: 'copy', pattern: "*.html"
 
     input:
-    path treefile
-    path snp_alignment
-    path core_snps      // peut être un fichier vide si optional
+    tuple val(report_name), path(fasta), path(treefile)
 
     output:
-    path "report_all_snps.html",  emit: report_all
-    path "report_core_snps.html", emit: report_core, optional: true
+    path "${report_name}.html"
 
     script:
     """
-    set -euo pipefail
-
-    # ── Rapport 1 : tous les SNPs ────────────────────────────────────
     python3 ${projectDir}/bin/phylo_report.py \\
-        --fasta  ${snp_alignment} \\
+        --fasta  ${fasta} \\
         --tree   ${treefile} \\
-        --output report_all_snps.html \\
-        --title  "Phylogénie — Tous les SNPs"
-
-    # ── Rapport 2 : SNPs core (seulement si le fichier est non vide) ─
-    if [ -s ${core_snps} ]; then
-        python3 ${projectDir}/bin/phylo_report.py \\
-            --fasta  ${core_snps} \\
-            --tree   ${treefile} \\
-            --output report_core_snps.html \\
-            --title  "Phylogénie — SNPs core"
-    else
-        echo "Pas de SNPs core disponibles, rapport core ignoré"
-    fi
+        --output ${report_name}.html \\
+        --title  "Phylogénie — ${report_name}"
     """
 }
