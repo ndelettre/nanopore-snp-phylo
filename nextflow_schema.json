@@ -27,7 +27,7 @@
                 "outdir": {
                     "type": "string",
                     "description": "Dossier de sortie des résultats.",
-                    "default": "results",
+                    "default": "output",
                     "fa_icon": "fas fa-folder"
                 }
             }
