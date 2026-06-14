@@ -41,7 +41,7 @@
                 "min_length": {
                     "type": "integer",
                     "description": "Longueur minimale des reads en paires de bases.",
-                    "default": 1000,
+                    "default": 200,
                     "minimum": 100,
                     "fa_icon": "fas fa-ruler-horizontal"
                 },
