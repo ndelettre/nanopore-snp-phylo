@@ -207,6 +207,21 @@ workflow {
     // ─────────────────────────────────────────────────────────────────────────
     IQTREE(KSNP4.out.snp_alignment)
 
+    // Rapport tous les SNPs
+ch_all_snps = KSNP4.out.snp_alignment
+    .map { fasta -> tuple("report_all_snps", fasta) }
+    .combine( IQTREE.out.tree )
+
+// Rapport SNPs core (seulement si produit)
+ch_core_snps = KSNP4.out.core_snp_matrix
+    .map { fasta -> tuple("report_core_snps", fasta) }
+    .combine( IQTREE.out.tree )
+
+// Fusionner les deux et lancer PHYLO_REPORT une seule fois
+ch_phylo_reports = ch_all_snps.mix(ch_core_snps)
+
+PHYLO_REPORT(ch_phylo_reports)
+
     // ─────────────────────────────────────────────────────────────────────────
     // ÉTAPE 8 : Rapport MultiQC
     // LEÇON : .mix() fusionne plusieurs channels en un seul (union).
@@ -237,6 +252,7 @@ workflow.onComplete {
     Matrice SNP    → ${params.outdir}/ksnp4/SNPs_all
     Arbre IQ-TREE  → ${params.outdir}/iqtree/phylo_tree.treefile
     Rapport QC     → ${params.outdir}/multiqc/multiqc_report.html
+    Rapport phylo  → ${params.outdir}/report_all_snps.html
 ──────────────────────────────────────────────────────────
 """.stripIndent()
 }
