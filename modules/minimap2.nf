@@ -25,10 +25,13 @@ process MINIMAP2 {
     output:
     // BAM trié + index .bai : nécessaires pour Clair3 et Qualimap
     tuple val(sample_id), path("${sample_id}.bam"), path("${sample_id}.bam.bai"), emit: bam
+    path "${reference}.fai", emit: ref_index
 
     script:
     """
     set -euo pipefail
+
+    samtools faidx ${reference}
 
     # Alignement des reads sur la référence, tri et indexation en une seule commande
     # -ax map-ont : preset Oxford Nanopore long reads
