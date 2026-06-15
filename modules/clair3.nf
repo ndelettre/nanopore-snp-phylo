@@ -40,18 +40,24 @@ process CLAIR3 {
     #                           (pas uniquement chr1-22/X/Y comme en mode humain)
     # --no_phasing_for_fa     : désactive le phasage haplotype, non pertinent
     #                           pour les bactéries haploïdes
-    run_clair3.sh \\
-        --bam_fn=${bam} \\
-        --ref_fn=${reference} \\
-        --threads=${task.cpus} \\
-        --platform=ont \\
-        --model_path=/opt/models/${params.clair3_model} \\
-        --output=clair3_out \\
-        --include_all_ctgs \\
-        --no_phasing_for_fa
+    # Clair3 résout le .fai depuis le chemin absolu de la référence
+    # On crée un lien symbolique avec le bon nom dans le workdir
+    REF=\$(realpath ${reference})
+    FAI=\$(realpath ${ref_fai})
 
-    # Renommer la sortie avec le sample_id pour traçabilité
-    # merge_output.vcf.gz = VCF final consolidé produit par Clair3
-    cp clair3_out/merge_output.vcf.gz ${sample_id}.vcf.gz
+    # S'assurer que le .fai est à côté de la référence dans le workdir
+    ln -sf \${FAI} \${REF}.fai 2>/dev/null || true
+
+run_clair3.sh \\
+    --bam_fn=\$(realpath ${bam}) \\
+    --ref_fn=\${REF} \\
+    --threads=${task.cpus} \\
+    --platform=ont \\
+    --model_path=/opt/models/${params.clair3_model} \\
+    --output=clair3_out \\
+    --include_all_ctgs \\
+    --no_phasing_for_fa
+
+cp clair3_out/merge_output.vcf.gz ${sample_id}.vcf.gz
     """
 }
