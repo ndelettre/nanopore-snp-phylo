@@ -292,7 +292,7 @@ def build_heatmap_trace(matrix):
         x=samples,
         y=samples,
         colorscale="Blues",
-        reversescale=True,
+        reversescale=False,
         colorbar=dict(
             title=dict(text="SNPs", side="right"),
             len=0.6
