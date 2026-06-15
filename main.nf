@@ -1,82 +1,107 @@
 #!/usr/bin/env nextflow
-
 /*
 ========================================================================================
-    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v2.2 (corrigé)
+    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v2.3
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
-    LEÇON : Ce fichier est le point d'entrée du pipeline.
-    Il importe les modules et définit le workflow principal.
+    DEUX MODES D'EXÉCUTION :
+
+    1. Mode de novo (sans --reference) :
+       NANOFILT → NANOSTAT → FLYE → MEDAKA → QUALIMAP
+                                           → KSNP4 → IQTREE → PHYLO_REPORT
+                                           → MULTIQC
+
+    2. Mode référence (avec --reference) :
+       NANOFILT → NANOSTAT → MINIMAP2 → QUALIMAP
+                                      → CLAIR3 → BCFTOOLS_MERGE → VCF_TO_FASTA
+                                                                 → IQTREE → PHYLO_REPORT
+                                      → MULTIQC
 ========================================================================================
 */
 
 // LEÇON : DSL2 est la version moderne de Nextflow.
 // Elle permet de réutiliser des modules et d'avoir un code plus propre.
-// NOTE : depuis Nextflow 22.03, DSL2 est activé par défaut, cette ligne est
-// facultative mais on la garde pour la compatibilité avec d'anciennes versions.
+// Activé par défaut depuis Nextflow 22.03, mais on le garde pour la lisibilité.
 nextflow.enable.dsl = 2
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEÇON : Les "params" sont les paramètres du pipeline.
+// PARAMÈTRES DU PIPELINE
 // L'utilisateur peut les modifier en ligne de commande :
 //   nextflow run main.nf --fastq_dir /mon/dossier --reference genome.fasta
+// EPI2ME les expose dans son interface via nextflow_schema.json.
 // ─────────────────────────────────────────────────────────────────────────────
 params.fastq_dir    = null          // Dossier contenant les FASTQ (obligatoire)
 params.reference    = null          // Génome de référence FASTA (optionnel)
-params.outdir       = "output"     // Dossier de sortie
-params.min_length   = 200          // Longueur minimale des reads (NanoFilt)
-params.min_quality  = 10            // Qualité minimale des reads (NanoFilt)
+                                    // Si fourni → mode référence (Minimap2 + Clair3)
+                                    // Si absent → mode de novo (Flye + Medaka + kSNP4)
+params.outdir       = "output"      // Dossier de sortie
+params.min_length   = 200           // Longueur minimale des reads (NanoFilt)
+params.min_quality  = 10            // Qualité minimale des reads Q-score (NanoFilt)
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
-params.medaka_model = "r1041_e82_400bps_sup_v5.2.0"  // Modèle Medaka selon ta flowcell
-params.bootstrap = true
+                                    // Utilisé uniquement en mode de novo
+params.medaka_model = "r1041_e82_400bps_sup_v5.2.0"
+                                    // Modèle Medaka : doit correspondre à ta flowcell
+                                    // et au mode de basecalling utilisé dans MinKNOW
+                                    // r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
+                                    // Utilisé uniquement en mode de novo
+params.clair3_model = "r1041_e82_400bps_sup_v500"
+                                    // Modèle Clair3 : doit correspondre à ta chimie ONT
+                                    // Convention : v500 = Dorado SUP 5.0.0
+                                    // Modèles disponibles dans /opt/models/ du container
+                                    // Utilisé uniquement en mode référence
+params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
+                                    // Désactiver (false) pour accélérer les tests
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEÇON : On importe les modules depuis le dossier modules/.
-// Chaque module = un outil = un fichier .nf séparé.
-// Cela rend le code modulaire et réutilisable.
-//
-// CORRECTION v2.1 : on ajoute l'extension .nf explicite à chaque include.
-// Nextflow accepte les deux formes, mais la forme avec .nf est plus claire
-// et évite toute ambiguïté si un sous-dossier portait le même nom qu'un module.
+// IMPORTS DES MODULES
+// Chaque module = un outil = un fichier .nf dans le dossier modules/.
+// Cette séparation rend le code modulaire et facilite la maintenance.
 // ─────────────────────────────────────────────────────────────────────────────
-include { NANOFILT }  from './modules/nanofilt.nf'
-include { NANOSTAT }  from './modules/nanostat.nf'
-include { FLYE }      from './modules/flye.nf'
-include { MEDAKA }    from './modules/medaka.nf'
-include { KSNP4 }     from './modules/ksnp4.nf'
-include { SNIPPY }    from './modules/snippy.nf'
-include { IQTREE }    from './modules/iqtree.nf'
-include { MULTIQC }   from './modules/multiqc.nf'
-include { QUALIMAP }  from './modules/qualimap.nf'
-include { PHYLO_REPORT } from './modules/phylo_report.nf'
+
+// Modules communs aux deux modes
+include { NANOFILT }       from './modules/nanofilt.nf'       // Filtrage qualité des reads
+include { NANOSTAT }       from './modules/nanostat.nf'       // Statistiques QC des reads
+include { QUALIMAP }       from './modules/qualimap.nf'       // QC du mapping BAM
+include { IQTREE }         from './modules/iqtree.nf'         // Construction de l'arbre phylogénétique
+include { MULTIQC }        from './modules/multiqc.nf'        // Rapport QC agrégé
+include { PHYLO_REPORT }   from './modules/phylo_report.nf'   // Rapport HTML interactif
+
+// Modules mode de novo uniquement
+include { FLYE }           from './modules/flye.nf'           // Assemblage de novo
+include { MEDAKA }         from './modules/medaka.nf'         // Polissage des assemblages
+include { KSNP4 }          from './modules/ksnp4.nf'          // SNP calling sans référence (k-mer)
+
+// Modules mode référence uniquement
+include { MINIMAP2 }       from './modules/minimap2.nf'       // Mapping long reads → référence
+include { CLAIR3 }         from './modules/clair3.nf'         // Variant calling deep learning
+include { BCFTOOLS_MERGE } from './modules/bcftools_merge.nf' // Fusion des VCF multi-souches
+include { VCF_TO_FASTA }   from './modules/vcf_to_fasta.nf'  // Conversion VCF → alignement FASTA
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEÇON : La fonction "log.info" affiche un message au démarrage du pipeline.
-// C'est une bonne pratique pour documenter les paramètres utilisés.
+// BANNIÈRE DE DÉMARRAGE
+// Affiche les paramètres utilisés pour traçabilité dans les logs.
 // ─────────────────────────────────────────────────────────────────────────────
 log.info """
 ╔══════════════════════════════════════════════════════════╗
-║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v2.2    ║
+║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v2.3    ║
 ╚══════════════════════════════════════════════════════════╝
   Dossier FASTQ   : ${params.fastq_dir}
-  Référence       : ${params.reference ?: 'Aucune (mode de novo)'}
+  Référence       : ${params.reference ?: 'Aucune — mode assemblage de novo'}
   Dossier sortie  : ${params.outdir}
   Qualité min.    : ${params.min_quality}
   Longueur min.   : ${params.min_length} bp
   Taille génome   : ${params.genome_size}
   Modèle Medaka   : ${params.medaka_model}
+  Modèle Clair3   : ${params.clair3_model}
 ──────────────────────────────────────────────────────────
 """.stripIndent()
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEÇON : Validation des paramètres obligatoires.
+// VALIDATION DES PARAMÈTRES OBLIGATOIRES
 // On arrête le pipeline proprement si l'utilisateur oublie --fastq_dir.
 // ─────────────────────────────────────────────────────────────────────────────
 if (!params.fastq_dir) {
-    error """
-    ERREUR : Le paramètre --fastq_dir est obligatoire.
-    Usage : nextflow run main.nf --fastq_dir /chemin/vers/fastq
-    """
+    error "ERREUR : --fastq_dir est obligatoire.\nUsage : nextflow run main.nf --fastq_dir /chemin/vers/fastq"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,20 +109,11 @@ if (!params.fastq_dir) {
 // ─────────────────────────────────────────────────────────────────────────────
 workflow {
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // LEÇON : Un "Channel" est un flux de données entre les process.
-    // fromPath() crée un channel à partir de fichiers sur le disque.
-    // map() transforme chaque élément : ici on crée une paire [nom_echantillon, fichier]
-    // Cette paire s'appelle un "tuple" et c'est la convention standard dans Nextflow.
-    //
-    // Exemple : si tu as sample1.fastq.gz, le tuple sera :
-    //   ["sample1", /chemin/vers/sample1.fastq.gz]
-    //
-    // CORRECTION v2.1 : on ajoute checkIfExists:true pour que Nextflow plante
-    // proprement si le dossier n'existe pas, au lieu de continuer avec un
-    // channel silencieusement vide. Cela remplace avantageusement l'usage
-    // incorrect de .ifEmpty{} qu'on avait auparavant.
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Création du channel d'entrée ──────────────────────────────────────────
+    // LEÇON : fromPath() crée un channel à partir de fichiers sur le disque.
+    // map() transforme chaque fichier en tuple [sample_id, fichier].
+    // Le sample_id est extrait du nom de fichier en supprimant les extensions.
+    // checkIfExists:true plante proprement si aucun fichier ne correspond.
     ch_fastq = Channel
         .fromPath(
             "${params.fastq_dir}/*.{fastq,fastq.gz,fq,fq.gz}",
@@ -110,149 +126,169 @@ workflow {
             tuple(sample_id, file)
         }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // CORRECTION v2.1 (bug majeur) : la version précédente faisait
-    //     ch_fastq.ifEmpty { error "..." }
-    // C'était incorrect pour deux raisons :
-    //   1) .ifEmpty() est un OPÉRATEUR qui renvoie un nouveau channel avec
-    //      la valeur par défaut s'il est vide, il ne s'exécute pas comme
-    //      une vérification "sur place". La closure {error ...} n'aurait
-    //      jamais été évaluée au bon moment.
-    //   2) En DSL2, un channel queue ne peut être consommé qu'UNE SEULE FOIS.
-    //      Faire ch_fastq.ifEmpty{...} puis NANOFILT(ch_fastq) est interdit.
-    //
-    // Solution : on utilise checkIfExists:true dans fromPath (voir ci-dessus),
-    // ce qui déclenche une erreur Nextflow si le pattern ne matche rien.
-    // Plus simple et conforme aux idiomes DSL2.
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Étapes communes aux deux modes ────────────────────────────────────────
+    // Ces étapes s'exécutent toujours, quelle que soit la présence d'une référence.
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 1 : Filtrage qualité avec NanoFilt
-    // Input  : [sample_id, fastq_brut]
-    // Output : [sample_id, fastq_filtré]
-    // ─────────────────────────────────────────────────────────────────────────
+    // Filtrage qualité : supprime les reads trop courts ou de mauvaise qualité
     NANOFILT(ch_fastq)
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 2 : Statistiques qualité avec NanoStat
-    // Input  : [sample_id, fastq_filtré]
-    // Output : rapport texte par échantillon
-    //
-    // CORRECTION v2.1 (commentaire factuel) : le commentaire précédent
-    // affirmait que NanoStat est "nativement parsé par MultiQC". C'est FAUX :
-    // MultiQC n'a pas de module natif pour NanoStat. Les fichiers seront
-    // affichés via la détection "custom content" de MultiQC mais pas
-    // intégrés en graphes natifs. Pour des graphes natifs, préférer
-    // NanoPlot + un module MultiQC custom, ou pycoQC.
-    // ─────────────────────────────────────────────────────────────────────────
+    // Statistiques : génère un rapport qualité par échantillon
     NANOSTAT(NANOFILT.out.reads)
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 3 : Assemblage de novo avec Flye
-    // Input  : [sample_id, fastq_filtré]
-    // Output : [sample_id, assembly.fasta]
-    // ─────────────────────────────────────────────────────────────────────────
-    FLYE(NANOFILT.out.reads)
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 4 : Polissage avec Medaka
-    // Input  : [sample_id, fastq_filtré, assembly.fasta]
-    // Output : [sample_id, assembly_polished.fasta]
+    // ════════════════════════════════════════════════════════════════════════════
+    // MODE RÉFÉRENCE (params.reference fourni)
+    // Approche : mapping des reads sur la référence → variant calling par souche
+    // → fusion des VCF → alignement FASTA multi-souches → phylogénie
     //
-    // LEÇON : .join() combine deux channels sur la base de la clé (1er élément
-    // du tuple par défaut, ici sample_id). C'est essentiel pour que chaque
-    // échantillon reçoive SON propre assembly, et non celui d'un autre.
-    // ─────────────────────────────────────────────────────────────────────────
-    ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
-    MEDAKA(ch_medaka_input)
-
-    QUALIMAP(MEDAKA.out.bam)
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 5 : kSNP4 sur tous les assemblages polishés
-    // kSNP4 prend TOUS les génomes en même temps (pas échantillon par échantillon).
-    //
-    // LEÇON : .collect() attend que TOUS les échantillons soient finis,
-    // puis les regroupe dans une seule liste. Indispensable pour kSNP4.
-    //
-    // LEÇON : .map { sample_id, fasta -> fasta } extrait uniquement le fichier
-    // FASTA du tuple, car kSNP4 n'a pas besoin du sample_id (il le déduit
-    // du nom de fichier, ou on le fournit dans le in_list).
-    // ─────────────────────────────────────────────────────────────────────────
-    ch_all_assemblies = MEDAKA.out.assembly
-        .map { sample_id, fasta -> fasta }
-        .collect()
-
-    KSNP4(ch_all_assemblies)
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 6 (optionnelle) : Si une référence est fournie → Snippy
-    // LEÇON : Le bloc "if" conditionnel permet d'activer des branches du
-    // pipeline selon les paramètres de l'utilisateur.
-    //
-    // LEÇON : .combine() crée toutes les combinaisons entre deux channels.
-    // Ici : chaque assemblage polished × la référence unique = un tuple par souche.
-    //
-    // CORRECTION v2.1 : on ajoute checkIfExists:true sur la référence également.
-    // ─────────────────────────────────────────────────────────────────────────
+    // Avantages vs mode de novo :
+    //   - Plus rapide (pas d'assemblage)
+    //   - Meilleure précision SNP (Clair3 deep learning vs kSNP4 k-mer)
+    //   - Variants exprimés par rapport à une référence connue
+    // ════════════════════════════════════════════════════════════════════════════
     if (params.reference) {
-        ch_reference    = Channel.fromPath(params.reference, checkIfExists: true)
-        ch_snippy_input = MEDAKA.out.assembly.combine(ch_reference)
-        SNIPPY(ch_snippy_input)
+
+        // Chargement de la référence comme channel singleton
+        // LEÇON : un channel singleton émet sa valeur à chaque fois qu'un
+        // process en a besoin — idéal pour une référence partagée entre toutes
+        // les souches sans avoir à la dupliquer dans le code.
+        ch_reference = Channel.fromPath(params.reference, checkIfExists: true)
+
+        // Mapping : aligne les reads filtrés sur la référence avec Minimap2
+        // preset map-ont = optimisé pour les reads longs Oxford Nanopore
+        // Produit un BAM trié et indexé par souche
+        MINIMAP2(NANOFILT.out.reads, ch_reference)
+
+        // QC du mapping : vérifie la couverture et la qualité de l'alignement
+        // Les rapports HTML sont nommés par sample_id pour identification dans EPI2ME
+        QUALIMAP(MINIMAP2.out.bam)
+
+        // Variant calling : détecte les SNPs par souche via réseau de neurones
+        // Clair3 utilise une approche double : pileup (rapide) + full-alignment (précis)
+        // Le modèle doit correspondre à la chimie ONT et au mode de basecalling
+        CLAIR3(MINIMAP2.out.bam, ch_reference)
+
+        // Collecte tous les VCF individuels pour les merger
+        // LEÇON : .map() extrait uniquement le VCF du tuple (on n'a plus besoin
+        // du sample_id à ce stade). .collect() attend que TOUTES les souches
+        // soient terminées avant de passer à l'étape suivante.
+        ch_all_vcf = CLAIR3.out.vcf
+            .map { sample_id, vcf -> vcf }
+            .collect()
+
+        // Fusion : combine tous les VCF individuels en un VCF multi-sample
+        // bcftools merge aligne les positions variables entre les souches
+        // et gère les génotypes manquants (./.) pour les positions non appelées
+        BCFTOOLS_MERGE(ch_all_vcf)
+
+        // Conversion : transforme le VCF multi-sample en alignement FASTA
+        // Chaque séquence = une souche, chaque position = un SNP variable
+        // Ce FASTA est le format attendu par IQ-TREE et PHYLO_REPORT
+        VCF_TO_FASTA(BCFTOOLS_MERGE.out.merged_vcf)
+
+        // Arbre phylogénétique à partir de l'alignement SNP
+        IQTREE(VCF_TO_FASTA.out.fasta)
+
+        // Rapport interactif HTML : arbre + matrice de distances SNP
+        // LEÇON : .combine() associe le FASTA avec l'arbre IQ-TREE
+        // pour les passer ensemble à PHYLO_REPORT dans un seul tuple.
+        ch_phylo = VCF_TO_FASTA.out.fasta
+            .map { fasta -> tuple("report_reference_snps", fasta) }
+            .combine(IQTREE.out.tree)
+
+        PHYLO_REPORT(ch_phylo)
+
+        // Rapport MultiQC : agrège les stats NanoStat + Qualimap
+        // LEÇON : .mix() fusionne plusieurs channels en un seul flux.
+        // .collect() attend tous les fichiers avant de lancer MultiQC.
+        ch_multiqc_files = NANOSTAT.out.stats
+            .mix(QUALIMAP.out.results)
+            .collect()
+
+        MULTIQC(ch_multiqc_files)
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // MODE DE NOVO (pas de référence fournie)
+    // Approche : assemblage de chaque souche → polissage → comparaison
+    // multi-souches par k-mers (kSNP4) → phylogénie
+    //
+    // Avantages vs mode référence :
+    //   - Pas besoin de référence (utile pour espèces peu caractérisées)
+    //   - Capture les variants structuraux absents de la référence
+    //   - Produit des assemblages complets réutilisables
+    // ════════════════════════════════════════════════════════════════════════════
+    } else {
+
+        // Assemblage de novo : reconstruit le génome depuis les reads
+        // Flye est optimisé pour les reads longs avec taux d'erreur élevé
+        FLYE(NANOFILT.out.reads)
+
+        // Polissage : corrige les erreurs résiduelles de l'assemblage
+        // LEÇON : .join() combine les reads et l'assemblage pour chaque
+        // souche sur la base du sample_id — garantit que chaque souche
+        // reçoit bien SES propres reads et SON propre assemblage.
+        ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
+        MEDAKA(ch_medaka_input)
+
+        // QC du mapping : Medaka produit un BAM d'alignement interne
+        // qu'on utilise pour vérifier la couverture de l'assemblage
+        QUALIMAP(MEDAKA.out.bam)
+
+        // SNP calling multi-souches : compare tous les assemblages simultanément
+        // kSNP4 utilise une approche k-mer (sans alignement global) :
+        //   - Plus rapide que l'alignement pour de nombreuses souches
+        //   - Robuste aux réarrangements génomiques
+        //   - Produit un alignement SNP (tous SNPs) et un alignement SNP core
+        // LEÇON : .map() extrait les FASTA sans le sample_id (kSNP4 le
+        // déduit du nom de fichier). .collect() attend toutes les souches.
+        ch_all_assemblies = MEDAKA.out.assembly
+            .map { sample_id, fasta -> fasta }
+            .collect()
+
+        KSNP4(ch_all_assemblies)
+
+        // Arbre phylogénétique à partir de l'alignement SNP kSNP4
+        IQTREE(KSNP4.out.snp_alignment)
+
+        // Deux rapports interactifs :
+        //   - Tous les SNPs (snp_alignment.fasta) : vision globale
+        //   - SNPs core uniquement (core_snp_matrix.fasta) : positions
+        //     présentes dans TOUTES les souches, plus conservateur
+        // LEÇON : .mix() fusionne les deux channels pour lancer
+        // PHYLO_REPORT deux fois en parallèle (une fois par rapport).
+        ch_all_snps = KSNP4.out.snp_alignment
+            .map { fasta -> tuple("report_all_snps", fasta) }
+            .combine(IQTREE.out.tree)
+
+        ch_core_snps = KSNP4.out.core_snp_matrix
+            .map { fasta -> tuple("report_core_snps", fasta) }
+            .combine(IQTREE.out.tree)
+
+        PHYLO_REPORT(ch_all_snps.mix(ch_core_snps))
+
+        // Rapport MultiQC : agrège NanoStat + stats Flye + Qualimap
+        ch_multiqc_files = NANOSTAT.out.stats
+            .mix(FLYE.out.stats)
+            .mix(QUALIMAP.out.results)
+            .collect()
+
+        MULTIQC(ch_multiqc_files)
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 7 : Arbre phylogénétique avec IQ-TREE
-    // Utilise l'alignement SNP au format FASTA produit par kSNP4
-    // ─────────────────────────────────────────────────────────────────────────
-    IQTREE(KSNP4.out.snp_alignment)
-
-    // Rapport tous les SNPs
-ch_all_snps = KSNP4.out.snp_alignment
-    .map { fasta -> tuple("report_all_snps", fasta) }
-    .combine( IQTREE.out.tree )
-
-// Rapport SNPs core (seulement si produit)
-ch_core_snps = KSNP4.out.core_snp_matrix
-    .map { fasta -> tuple("report_core_snps", fasta) }
-    .combine( IQTREE.out.tree )
-
-// Fusionner les deux et lancer PHYLO_REPORT une seule fois
-ch_phylo_reports = ch_all_snps.mix(ch_core_snps)
-
-PHYLO_REPORT(ch_phylo_reports)
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // ÉTAPE 8 : Rapport MultiQC
-    // LEÇON : .mix() fusionne plusieurs channels en un seul (union).
-    // MultiQC lit tous les fichiers de stats et produit un rapport HTML agrégé.
-    // ─────────────────────────────────────────────────────────────────────────
-    ch_multiqc_files = NANOSTAT.out.stats
-        .mix(FLYE.out.stats)
-        .mix(QUALIMAP.out.results)
-        .collect()
-
-    MULTIQC(ch_multiqc_files)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEÇON : Le bloc "workflow.onComplete" s'exécute à la fin du pipeline.
-// C'est pratique pour afficher un résumé ou envoyer une notification.
+// RÉSUMÉ DE FIN DE PIPELINE
+// S'exécute automatiquement à la fin, succès ou échec.
 // ─────────────────────────────────────────────────────────────────────────────
 workflow.onComplete {
+    def mode = params.reference ? 'Référence' : 'De novo'
     log.info """
 ╔══════════════════════════════════════════════════════════╗
 ║                  PIPELINE TERMINÉ !                      ║
 ╚══════════════════════════════════════════════════════════╝
   Statut    : ${workflow.success ? '✅ Succès' : '❌ Échec'}
+  Mode      : ${mode}
   Durée     : ${workflow.duration}
   Résultats : ${params.outdir}/
-──────────────────────────────────────────────────────────
-  Fichiers clés :
-    Matrice SNP    → ${params.outdir}/ksnp4/SNPs_all
-    Arbre IQ-TREE  → ${params.outdir}/iqtree/phylo_tree.treefile
-    Rapport QC     → ${params.outdir}/multiqc/multiqc_report.html
-    Rapport phylo  → ${params.outdir}/report_all_snps.html
 ──────────────────────────────────────────────────────────
 """.stripIndent()
 }
