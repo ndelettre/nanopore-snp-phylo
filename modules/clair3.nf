@@ -23,6 +23,7 @@ process CLAIR3 {
     tuple val(sample_id), path(bam), path(bai)
     // Génome de référence FASTA (partagé entre toutes les souches)
     path reference
+    path ref_fai
 
     output:
     // VCF.gz par souche, nommé avec le sample_id pour BCFTOOLS_MERGE
@@ -31,9 +32,6 @@ process CLAIR3 {
     script:
     """
     set -euo pipefail
-
-    # L'index FASTA est requis par Clair3 pour l'accès aléatoire aux contigs
-    samtools faidx ${reference}
 
     # Variant calling Clair3
     # --platform=ont          : profil d'erreur Oxford Nanopore
