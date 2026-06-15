@@ -165,7 +165,8 @@ workflow {
         // Variant calling : détecte les SNPs par souche via réseau de neurones
         // Clair3 utilise une approche double : pileup (rapide) + full-alignment (précis)
         // Le modèle doit correspondre à la chimie ONT et au mode de basecalling
-        CLAIR3(MINIMAP2.out.bam, ch_reference)
+        ch_ref_fai = MINIMAP2.out.ref_index.first()
+        CLAIR3(MINIMAP2.out.bam, ch_reference, ch_ref_fai)
 
         // Collecte tous les VCF individuels pour les merger
         // LEÇON : .map() extrait uniquement le VCF du tuple (on n'a plus besoin
