@@ -20,7 +20,7 @@ process CLAIR3 {
         --ref_fn=${reference} \\
         --threads=${task.cpus} \\
         --platform=ont \\
-        --model_path=/opt/models/r1041_e82_400bps_sup_v420 \\
+        --model_path=/opt/models/${params.clair3_model} \\
         --output=clair3_out \\
         --include_all_ctgs \\
         --no_phasing_for_fa
