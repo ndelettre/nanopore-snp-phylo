@@ -151,7 +151,7 @@ workflow {
         // LEÇON : un channel singleton émet sa valeur à chaque fois qu'un
         // process en a besoin — idéal pour une référence partagée entre toutes
         // les souches sans avoir à la dupliquer dans le code.
-        ch_reference = Channel.fromPath(params.reference, checkIfExists: true)
+        ch_reference = Channel.fromPath(params.reference, checkIfExists: true).first()
 
         // Mapping : aligne les reads filtrés sur la référence avec Minimap2
         // preset map-ont = optimisé pour les reads longs Oxford Nanopore
