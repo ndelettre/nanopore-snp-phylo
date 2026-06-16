@@ -48,6 +48,6 @@ process BCFTOOLS_MERGE {
         --merge snps \\
         --output-type z \\
         --output merged.vcf.gz \\
-        ${vcf_list}
+        *_renamed.vcf.gz
     """
 }
