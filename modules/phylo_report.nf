@@ -13,8 +13,7 @@ process PHYLO_REPORT {
     tag "${report_name}"
     label 'process_low'
 
-    publishDir "${params.outdir}/phylo_report", mode: 'copy'
-    publishDir "${params.outdir}",              mode: 'copy', pattern: "*.html"
+    publishDir "${params.outdir}",              mode: 'copy'
 
     input:
     tuple val(report_name), path(fasta), path(treefile)
