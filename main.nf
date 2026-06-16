@@ -24,6 +24,7 @@ params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex:
 params.medaka_model = "r1041_e82_400bps_sup_v5.2.0"
                                     // Modèle Medaka : r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
 params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
+params.kraken_db = "/data/kraken2_db"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPORTS DES MODULES
@@ -37,6 +38,7 @@ include { KSNP4 }        from './modules/ksnp4.nf'
 include { IQTREE }       from './modules/iqtree.nf'
 include { MULTIQC }      from './modules/multiqc.nf'
 include { PHYLO_REPORT } from './modules/phylo_report.nf'
+include { KRAKEN2 } from './modules/kraken2.nf'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BANNIÈRE DE DÉMARRAGE
@@ -61,6 +63,8 @@ log.info """
 if (!params.fastq_dir) {
     error "ERREUR : --fastq_dir est obligatoire.\nUsage : nextflow run main.nf --fastq_dir /chemin/vers/fastq"
 }
+if (!params.kraken_db) {
+    error "ERREUR : --kraken_db est obligatoire.\nUsage : nextflow run main.nf --kraken_db /chemin/vers/db"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WORKFLOW PRINCIPAL
@@ -83,6 +87,10 @@ workflow {
     // ── Filtrage et QC des reads ──────────────────────────────────────────────
     NANOFILT(ch_fastq)
     NANOSTAT(NANOFILT.out.reads)
+
+    //vérification de l'identification
+    ch_kraken_db = Channel.fromPath(params.kraken_db, checkIfExists: true).first()
+    KRAKEN2(NANOFILT.out.reads, ch_kraken_db)
 
     // ── Assemblage de novo ────────────────────────────────────────────────────
     // Flye est optimisé pour les reads longs avec taux d'erreur élevé
