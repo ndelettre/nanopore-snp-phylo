@@ -27,7 +27,7 @@ process NANOFILT {
     tag "${sample_id}"
     label 'process_mono'
 
-    publishDir "${params.outdir}/nanofilt/${sample_id}", mode: 'copy'
+    publishDir "${params.resultsdir}/nanofilt/${sample_id}", mode: 'copy'
 
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : L'input est un tuple (paire) : [identifiant, fichier]
