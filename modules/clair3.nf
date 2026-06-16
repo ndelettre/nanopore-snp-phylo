@@ -56,7 +56,7 @@ run_clair3.sh \\
     --model_path=/opt/models/${params.clair3_model} \\
     --output=clair3_out \\
     --include_all_ctgs \\
-    --no_phasing_for_fa
+    --no_phasing_for_fa \\
     --haploid_precise
 
 cp clair3_out/merge_output.vcf.gz ${sample_id}.vcf.gz
