@@ -8,13 +8,17 @@ FASTA multi-séquences exploitable par IQ-TREE et phylo_report.py.
 Principe :
   - Chaque souche → une séquence FASTA
   - Chaque position SNP variable entre les souches → une colonne de l'alignement
-  - Génotypes manquants (./.) → 'N'
+  - Génotypes manquants (./.) → exclusion de la position (core SNPs uniquement)
   - Positions non variables (toutes souches identiques) → exclues
     (pas d'information phylogénétique)
   - Positions FILTER != PASS → exclues
   - Indels → exclus (SNPs uniquement, REF et ALT d'un seul nucléotide)
 
-Le FASTA produit est fonctionnellement équivalent au snp_alignment.fasta
+Approche core SNPs : seules les positions appelées dans TOUTES les souches
+sont conservées. Une position avec au moins un génotype manquant (N) est
+exclue — garantit des distances pairwise comparables entre toutes les souches.
+
+Le FASTA produit est fonctionnellement équivalent au core_SNPs_matrix.fasta
 de kSNP4 — PHYLO_REPORT et IQ-TREE le consomment de manière identique.
 
 Usage :
@@ -41,10 +45,14 @@ def parse_vcf(vcf_path):
     Retourne :
         samples : liste des noms de souches dans l'ordre des colonnes VCF
         records : liste de dict {sample_id: base} pour chaque position SNP
-                  variable entre au moins deux souches
+                  variable entre au moins deux souches, appelée dans TOUTES
+                  les souches (core SNPs)
     """
     samples = []
     records = []
+    n_total = 0
+    n_excluded_N = 0
+    n_excluded_invariant = 0
 
     # Supporte les VCF compressés (.vcf.gz) et non compressés (.vcf)
     opener = gzip.open if vcf_path.endswith('.gz') else open
@@ -67,7 +75,7 @@ def parse_vcf(vcf_path):
             if len(cols) < 9 + len(samples):
                 continue
 
-            ref  = cols[3]           # Allèle de référence
+            ref  = cols[3]            # Allèle de référence
             alts = cols[4].split(',') # Allèles alternatifs (peut être multi-allélique)
             fmt  = cols[8].split(':') # Format des champs génotype
             filt = cols[6]            # Statut FILTER
@@ -84,6 +92,8 @@ def parse_vcf(vcf_path):
             if filt not in ('PASS', '.'):
                 continue
 
+            n_total += 1
+
             # Table des allèles : index 0 = REF, 1 = ALT1, 2 = ALT2, etc.
             alleles = [ref] + alts
 
@@ -96,26 +106,46 @@ def parse_vcf(vcf_path):
                 sample_data = cols[9 + i].split(':')
                 gt_raw = sample_data[gt_idx] if gt_idx < len(sample_data) else '.'
 
-                # Normalisation du génotype : 0/0, 0|0, 1/1, ./. → premier allèle
-                # Pour les bactéries haploïdes, le premier allèle suffit
-                gt = gt_raw.replace('|', '/').split('/')[0]
+                # Pour les bactéries haploïdes : exclure les génotypes hétérozygotes
+                # (artefacts de séquençage sur organismes haploïdes)
+                alleles_gt = gt_raw.replace('|', '/').split('/')
 
-                if gt in ('.', ''):
-                    # Génotype manquant → N (position non appelée pour cette souche)
+                if alleles_gt[0] in ('.', ''):
+                    # Génotype manquant
+                    position[sample] = 'N'
+                elif len(set(alleles_gt)) > 1:
+                    # Génotype hétérozygote (0/1, 1/2...) → artefact sur bactérie
                     position[sample] = 'N'
                 else:
                     try:
-                        allele_idx = int(gt)
+                        allele_idx = int(alleles_gt[0])
                         base = alleles[allele_idx] if allele_idx < len(alleles) else 'N'
                         position[sample] = base
                     except ValueError:
                         position[sample] = 'N'
 
-            # Ne garder que les positions réellement variables entre les souches
-            # (au moins deux bases différentes en excluant les N)
-            bases = set(b for b in position.values() if b != 'N')
-            if len(bases) > 1:
-                records.append(position)
+            # ── Core SNPs : exclure toute position avec au moins un N ────────
+            # Garantit que toutes les distances pairwise sont calculées sur
+            # exactement les mêmes positions → distances comparables entre
+            # toutes les paires de souches.
+            if any(b == 'N' for b in position.values()):
+                n_excluded_N += 1
+                continue
+
+            # Exclure les positions non variables (toutes souches identiques)
+            bases = set(position.values())
+            if len(bases) == 1:
+                n_excluded_invariant += 1
+                continue
+
+            records.append(position)
+
+    print(
+        f"[vcf_to_fasta] Positions traitées    : {n_total}\n"
+        f"[vcf_to_fasta] Exclues (N/manquant)  : {n_excluded_N}\n"
+        f"[vcf_to_fasta] Exclues (invariantes) : {n_excluded_invariant}\n"
+        f"[vcf_to_fasta] Core SNPs retenus      : {len(records)}"
+    )
 
     return samples, records
 
@@ -130,27 +160,25 @@ def write_fasta(samples, records, output_path):
 
     Format :
         >souche_A
-        ACGTNN...
+        ACGT...
         >souche_B
-        ACGTAN...
+        ACGT...
 
-    Chaque séquence = concaténation des bases aux positions SNP variables.
+    Chaque séquence = concaténation des bases aux positions core SNP.
     Lignes de 80 caractères (convention FASTA standard).
     """
     if not records:
         print(
-            "[ERREUR] Aucun SNP variable trouvé dans le VCF.\n"
-            "Vérifiez que le VCF n'est pas vide et que les filtres PASS sont corrects.",
+            "[ERREUR] Aucun core SNP trouvé dans le VCF.\n"
+            "Vérifiez que le VCF n'est pas vide et que les filtres PASS sont corrects.\n"
+            "Si une souche a une couverture insuffisante, elle peut exclure toutes les positions.",
             file=sys.stderr
         )
         sys.exit(1)
 
-    n_snps = len(records)
-    print(f"[vcf_to_fasta] {len(samples)} souches | {n_snps} positions SNP variables")
-
     with open(output_path, 'w') as f:
         for sample in samples:
-            seq = ''.join(rec.get(sample, 'N') for rec in records)
+            seq = ''.join(rec[sample] for rec in records)
             f.write(f'>{sample}\n')
             # Écriture en lignes de 80 caractères (convention FASTA)
             for i in range(0, len(seq), 80):
@@ -167,7 +195,8 @@ def main():
     parser = argparse.ArgumentParser(
         description=(
             "Convertit un VCF multi-sample (bcftools merge) en alignement FASTA\n"
-            "pour IQ-TREE et phylo_report.py."
+            "pour IQ-TREE et phylo_report.py. Approche core SNPs : seules les\n"
+            "positions appelées dans toutes les souches sont conservées."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
