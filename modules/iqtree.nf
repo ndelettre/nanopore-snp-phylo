@@ -24,7 +24,7 @@ process IQTREE {
     """
     set -euo pipefail
 
-    n_seq=\$(grep -c "^>" snp_alignment.fasta || true)
+    n_seq=\$(grep -c "^>" ${alignment} || true)
     if [ "\$n_seq" -lt 3 ]; then
         echo "ERREUR : L'alignement contient \$n_seq séquence(s). IQ-TREE requiert au moins 3."
         exit 1
@@ -32,10 +32,10 @@ process IQTREE {
     echo "Alignement OK : \$n_seq séquences"
 
     iqtree2 \\
-        -s snp_alignment.fasta \\
-        -m GTR+G \\
+        -s ${alignment} \\
+        -m GTR+G+ASC \\
         ${bootstrap} \\
-        -T 12 \\
+        -T ${task.cpus} \\
         --prefix phylo_tree \\
         -redo
     """
