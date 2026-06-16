@@ -16,8 +16,7 @@ process MULTIQC {
 
     label 'process_low'
 
-    publishDir "${params.outdir}/multiqc", mode: 'copy'
-    publishDir "${params.outdir}",         mode: 'copy', pattern: "multiqc_report.html"
+    publishDir "${params.outdir}",         mode: 'copy'
 
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : .mix() dans main.nf a fusionné les channels NanoStat et Flye.
