@@ -32,8 +32,12 @@ process BCFTOOLS_MERGE {
 
     # Indexation TBI (tabix) de chaque VCF : requis par bcftools merge
     # pour l'accès aléatoire aux positions génomiques
+    # Changement de du header de chaque fichier vcf
     for vcf in ${vcf_list}; do
-        bcftools index --tbi \$vcf
+        sample=\$(basename \$vcf .vcf.gz)
+        echo "\$sample" > \${sample}_name.txt
+        bcftools reheader --samples \${sample}_name.txt \$vcf -o \${sample}_renamed.vcf.gz
+        bcftools index --tbi \${sample}_renamed.vcf.gz
     done
 
     # Fusion multi-sample
