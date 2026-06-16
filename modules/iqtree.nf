@@ -10,7 +10,7 @@
 
 process IQTREE {
     label 'process_high'
-    publishDir "${params.outdir}/iqtree", mode: 'copy'
+    publishDir "${params.resultsdir}/iqtree", mode: 'copy'
 
     input:
     path alignment
