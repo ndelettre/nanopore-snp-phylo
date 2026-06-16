@@ -26,17 +26,19 @@ process CHECKM2 {
     path checkm2_db
 
     output:
-    tuple val(sample_id), path("${sample_id}_checkm2/quality_report.tsv"), emit: report
+tuple val(sample_id), path("${sample_id}_checkm2_quality_report.tsv"), emit: report
 
-    script:
-    """
-    set -euo pipefail
+script:
+"""
+set -euo pipefail
 
-    checkm2 predict \\
-        --input ${assembly} \\
-        --output-directory ${sample_id}_checkm2 \\
-        --threads ${task.cpus} \\
-        --database_path ${checkm2_db} \\
-        --force
-    """
+checkm2 predict \\
+    --input ${assembly} \\
+    --output-directory ${sample_id}_checkm2 \\
+    --threads ${task.cpus} \\
+    --database_path ${checkm2_db} \\
+    --force
+
+cp ${sample_id}_checkm2/quality_report.tsv ${sample_id}_checkm2_quality_report.tsv
+"""
 }
