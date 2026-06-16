@@ -71,6 +71,9 @@ if (!params.fastq_dir) {
 if (!params.kraken_db) {
     error "ERREUR : --kraken_db est obligatoire.\nUsage : nextflow run main.nf --kraken_db /chemin/vers/db"
 }
+if (!params.checkm2_db) {
+    error "ERREUR : --checkm2_db est obligatoire.\nUsage : nextflow run main.nf --checkm2_db /chemin/vers/uniref100.KO.1.dmnd"
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WORKFLOW PRINCIPAL
