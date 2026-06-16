@@ -18,12 +18,6 @@
                     "description": "Dossier contenant les fichiers FASTQ (un fichier par échantillon).",
                     "fa_icon": "fas fa-folder-open"
                 },
-                "outdir": {
-                    "type": "string",
-                    "description": "Dossier de sortie des résultats.",
-                    "default": "output",
-                    "fa_icon": "fas fa-folder"
-                }
             }
         },
         "filtering_options": {
