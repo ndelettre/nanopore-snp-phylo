@@ -20,7 +20,7 @@ process NANOSTAT {
     tag "${sample_id}"
     label 'process_mono'
 
-    publishDir "${params.outdir}/nanostat/${sample_id}", mode: 'copy'
+    publishDir "${params.resultsdir}/nanostat/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(fastq)
