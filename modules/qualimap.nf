@@ -25,7 +25,7 @@
 process QUALIMAP {
     tag "${sample_id}"
     label 'process_low'
-    publishDir "${params.outdir}/qualimap", mode: 'copy'
+    publishDir "${params.resultsdir}/qualimap", mode: 'copy'
 
     input:
     // BAM trié + index : produit par MEDAKA (mode de novo)
