@@ -22,7 +22,7 @@ process KSNP4 {
     // ─────────────────────────────────────────────────────────────────────────
     label 'process_high'
 
-    publishDir "${params.outdir}/ksnp4", mode: 'copy'
+    publishDir "${params.resultsdir}/ksnp4", mode: 'copy'
 
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : L'input est une liste de fichiers FASTA (path).
