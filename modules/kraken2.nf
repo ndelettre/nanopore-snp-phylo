@@ -19,7 +19,7 @@
 process KRAKEN2 {
     tag "${sample_id}"
     label 'process_medium'
-    publishDir "${params.outdir}/kraken2", mode: 'copy'
+    publishDir "${params.resultsdir}/kraken2", mode: 'copy'
 
     input:
     // Reads filtrés par NanoFilt
