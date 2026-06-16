@@ -40,6 +40,7 @@ include { IQTREE }       from './modules/iqtree.nf'
 include { MULTIQC }      from './modules/multiqc.nf'
 include { PHYLO_REPORT } from './modules/phylo_report.nf'
 include { KRAKEN2 } from './modules/kraken2.nf'
+include { MLST } from './modules/mlst.nf'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BANNIÈRE DE DÉMARRAGE
@@ -102,6 +103,8 @@ workflow {
     // .join() garantit que chaque souche reçoit SES propres reads et assemblage
     ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
     MEDAKA(ch_medaka_input)
+
+    MLST(MEDAKA.out.assembly)
 
     // ── QC du mapping ─────────────────────────────────────────────────────────
     QUALIMAP(MEDAKA.out.bam)
