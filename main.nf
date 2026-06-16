@@ -66,6 +66,7 @@ if (!params.fastq_dir) {
 }
 if (!params.kraken_db) {
     error "ERREUR : --kraken_db est obligatoire.\nUsage : nextflow run main.nf --kraken_db /chemin/vers/db"
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WORKFLOW PRINCIPAL
