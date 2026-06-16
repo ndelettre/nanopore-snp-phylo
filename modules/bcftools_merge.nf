@@ -46,6 +46,7 @@ process BCFTOOLS_MERGE {
     # --output-type z : sortie compressée BGZF (.vcf.gz)
     bcftools merge \\
         --merge snps \\
+        --missing-to-ref \\
         --output-type z \\
         --output merged.vcf.gz \\
         *_renamed.vcf.gz
