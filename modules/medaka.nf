@@ -13,7 +13,7 @@ process MEDAKA {
     tag "${sample_id}"
     label 'process_low'
 
-    publishDir "${params.outdir}/medaka/${sample_id}", mode: 'copy'
+    publishDir "${params.resultsdir}/medaka/${sample_id}", mode: 'copy'
 
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : Ici l'input est un tuple à 3 éléments.
