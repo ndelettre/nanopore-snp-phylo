@@ -9,7 +9,7 @@ process FLYE {
     tag "${sample_id}"
     label 'process_medium'   // Flye est gourmand en CPU/RAM → label 'high'
 
-    publishDir "${params.outdir}/flye/${sample_id}", mode: 'copy'
+    publishDir "${params.resultsdir}/flye/${sample_id}", mode: 'copy'
 
     input:
     tuple val(sample_id), path(filtered_fastq)
