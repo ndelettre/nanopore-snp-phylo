@@ -41,6 +41,8 @@ include { MULTIQC }      from './modules/multiqc.nf'
 include { PHYLO_REPORT } from './modules/phylo_report.nf'
 include { KRAKEN2 } from './modules/kraken2.nf'
 include { MLST } from './modules/mlst.nf'
+include { CHECKM2 } from './modules/checkm2.nf'
+include { QUAST } from './modules/quast.nf'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BANNIÈRE DE DÉMARRAGE
@@ -104,6 +106,8 @@ workflow {
     ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
     MEDAKA(ch_medaka_input)
 
+    QUAST(MEDAKA.out.assembly)
+    CHECKM2(MEDAKA.out.assembly)
     MLST(MEDAKA.out.assembly)
 
     // ── QC du mapping ─────────────────────────────────────────────────────────
@@ -135,9 +139,12 @@ workflow {
 
     // ── Rapport MultiQC ───────────────────────────────────────────────────────
     ch_multiqc_files = NANOSTAT.out.stats
-        .mix(FLYE.out.stats)
-        .mix(QUALIMAP.out.results)
-        .collect()
+    .mix(FLYE.out.stats)
+    .mix(QUALIMAP.out.results)
+    .mix(QUAST.out.results)
+    .mix(CHECKM2.out.report.map { sample_id, report -> report })
+    .mix(MLST.out.mlst.map { sample_id, tsv -> tsv })
+    .collect()
 
     MULTIQC(ch_multiqc_files)
 }
