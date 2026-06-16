@@ -57,6 +57,7 @@ run_clair3.sh \\
     --output=clair3_out \\
     --include_all_ctgs \\
     --no_phasing_for_fa
+    --haploid_precise
 
 cp clair3_out/merge_output.vcf.gz ${sample_id}.vcf.gz
     """
