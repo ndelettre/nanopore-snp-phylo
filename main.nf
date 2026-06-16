@@ -17,7 +17,8 @@ nextflow.enable.dsl = 2
 // PARAMÈTRES DU PIPELINE
 // ─────────────────────────────────────────────────────────────────────────────
 params.fastq_dir    = null          // Dossier contenant les FASTQ (obligatoire)
-params.outdir       = "output"      // Dossier de sortie
+params.outdir       = "output"      // Dossier de sortie des rapports
+params.resultsdir   = "results"     // Dossier de sortie des fichiers
 params.min_length   = 200           // Longueur minimale des reads (NanoFilt)
 params.min_quality  = 10            // Qualité minimale des reads Q-score (NanoFilt)
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
@@ -147,7 +148,8 @@ workflow.onComplete {
 ╚══════════════════════════════════════════════════════════╝
   Statut    : ${workflow.success ? '✅ Succès' : '❌ Échec'}
   Durée     : ${workflow.duration}
-  Résultats : ${params.outdir}/
+  Rapports : ${params.outdir}/
+  Résultats : ${params.resultsdir}/
 ──────────────────────────────────────────────────────────
 """.stripIndent()
 }
