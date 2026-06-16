@@ -26,6 +26,7 @@ params.medaka_model = "r1041_e82_400bps_sup_v5.2.0"
                                     // Modèle Medaka : r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
 params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
 params.kraken_db = "/data/kraken2_db"
+params.checkm2_db = "/data/checkm2_db"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPORTS DES MODULES
@@ -106,9 +107,11 @@ workflow {
     ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
     MEDAKA(ch_medaka_input)
 
-    QUAST(MEDAKA.out.assembly)
-    CHECKM2(MEDAKA.out.assembly)
+   
+    ch_checkm2_db = Channel.fromPath(params.checkm2_db, checkIfExists: true).first()
+    CHECKM2(MEDAKA.out.assembly, ch_checkm2_db)
     MLST(MEDAKA.out.assembly)
+    QUAST(MEDAKA.out.assembly)
 
     // ── QC du mapping ─────────────────────────────────────────────────────────
     QUALIMAP(MEDAKA.out.bam)
