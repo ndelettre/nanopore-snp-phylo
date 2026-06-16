@@ -58,24 +58,15 @@ params.bootstrap    = true          // Active le calcul des valeurs de bootstrap
 // Cette séparation rend le code modulaire et facilite la maintenance.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Modules communs aux deux modes
 include { NANOFILT }       from './modules/nanofilt.nf'       // Filtrage qualité des reads
 include { NANOSTAT }       from './modules/nanostat.nf'       // Statistiques QC des reads
 include { QUALIMAP }       from './modules/qualimap.nf'       // QC du mapping BAM
 include { IQTREE }         from './modules/iqtree.nf'         // Construction de l'arbre phylogénétique
 include { MULTIQC }        from './modules/multiqc.nf'        // Rapport QC agrégé
 include { PHYLO_REPORT }   from './modules/phylo_report.nf'   // Rapport HTML interactif
-
-// Modules mode de novo uniquement
 include { FLYE }           from './modules/flye.nf'           // Assemblage de novo
 include { MEDAKA }         from './modules/medaka.nf'         // Polissage des assemblages
 include { KSNP4 }          from './modules/ksnp4.nf'          // SNP calling sans référence (k-mer)
-
-// Modules mode référence uniquement
-include { MINIMAP2 }       from './modules/minimap2.nf'       // Mapping long reads → référence
-include { CLAIR3 }         from './modules/clair3.nf'         // Variant calling deep learning
-include { BCFTOOLS_MERGE } from './modules/bcftools_merge.nf' // Fusion des VCF multi-souches
-include { VCF_TO_FASTA }   from './modules/vcf_to_fasta.nf'  // Conversion VCF → alignement FASTA
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BANNIÈRE DE DÉMARRAGE
