@@ -17,6 +17,18 @@
                     "format": "directory-path",
                     "description": "Dossier contenant les fichiers FASTQ (un fichier par échantillon).",
                     "fa_icon": "fas fa-folder-open"
+                },
+                "kraken_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Dossier contenant la base de données Kraken2 (PlusPF-8 recommandée).",
+                    "fa_icon": "fas fa-database"
+                },
+                "checkm2_db": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Chemin vers la base de données CheckM2 (fichier uniref100.KO.1.dmnd).",
+                    "fa_icon": "fas fa-database"
                 }
             }
         },
