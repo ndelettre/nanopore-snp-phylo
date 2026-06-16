@@ -23,6 +23,7 @@ process CHECKM2 {
 
     input:
     tuple val(sample_id), path(assembly)
+    path checkm2_db
 
     output:
     tuple val(sample_id), path("${sample_id}_checkm2/quality_report.tsv"), emit: report
@@ -35,6 +36,7 @@ process CHECKM2 {
         --input ${assembly} \\
         --output-directory ${sample_id}_checkm2 \\
         --threads ${task.cpus} \\
+        --database_path ${checkm2_db} \\
         --force
     """
 }
