@@ -72,7 +72,7 @@
                     "description": "Modèle Medaka selon la flowcell et le mode de basecalling utilisés dans MinKNOW.",
                     "default": "r1041_e82_400bps_bacterial_methylation",
                     "enum": [
-                        "r1041_e82_400bps_bacterial_methylation"
+                        "r1041_e82_400bps_bacterial_methylation",
                         "r1041_e82_400bps_sup_v5.2.0",
                         "r1041_e82_400bps_sup_v5.0.0",
                         "r1041_e82_400bps_hac_v5.2.0",
