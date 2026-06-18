@@ -1,22 +1,28 @@
 /*
 ========================================================================================
-    MODULE : PHYLO_REPORT — Rapport HTML interactif (arbre + matrice SNP)
+    MODULE : PHYLO_REPORT — Rapport HTML interactif
 ========================================================================================
-    Génère deux rapports HTML Plotly :
-      - report_all_snps.html  → basé sur snp_alignment.fasta (tous les SNPs)
-      - report_core_snps.html → basé sur core_SNPs_matrix.fasta (SNPs core)
-
-    Les deux rapports sont copiés dans output/ pour être détectés par EPI2ME.
+    Génère un rapport HTML complet par analyse SNP :
+      - Header HPSJ + titre + date
+      - Contrôle qualité des assemblages (Qualimap + CheckM2)
+      - Identification taxonomique (Kraken2)
+      - Typage MLST
+      - Arbre phylogénétique IQ-TREE (Plotly)
+      - Matrice de distances SNP (Plotly)
+      - Footer avec versions des logiciels
 ========================================================================================
 */
 process PHYLO_REPORT {
     tag "${report_name}"
     label 'process_low'
-
-    publishDir "${params.outdir}",              mode: 'copy'
+    publishDir "${params.outdir}", mode: 'copy'
 
     input:
     tuple val(report_name), path(fasta), path(treefile)
+    path kraken_reports   // dossier contenant les *.kraken2.report
+    path mlst_reports     // dossier contenant les *.mlst.tsv
+    path qualimap_reports // dossier contenant les *_qualimap/
+    path checkm2_reports  // dossier contenant les *_checkm2_quality_report.tsv
 
     output:
     path "${report_name}.html"
@@ -24,9 +30,13 @@ process PHYLO_REPORT {
     script:
     """
     python3 ${projectDir}/bin/phylo_report.py \\
-        --fasta  ${fasta} \\
-        --tree   ${treefile} \\
-        --output ${report_name}.html \\
-        --title  "Phylogénie — ${report_name}"
+        --fasta        ${fasta} \\
+        --tree         ${treefile} \\
+        --output       ${report_name}.html \\
+        --title        "Comparaison génomique des souches bactériennes" \\
+        --kraken_dir   ${kraken_reports} \\
+        --mlst_dir     ${mlst_reports} \\
+        --qualimap_dir ${qualimap_reports} \\
+        --checkm2_dir  ${checkm2_reports}
     """
 }
