@@ -165,29 +165,24 @@ workflow {
     // de SNPs uniquement (sites invariants exclus par kSNP4).
     IQTREE(KSNP4.out.snp_alignment)
 
-    // ── Collecte des données QC pour le rapport ────────────────────────────────
-    // PHYLO_REPORT a besoin des dossiers de résultats de chaque outil QC.
-    // LEÇON : on collecte tous les fichiers d'un type, puis on remonte
-    // au dossier parent — PHYLO_REPORT parcourt ce dossier pour lire
-    // les rapports de chaque souche.
-    ch_kraken_reports = KRAKEN2.out.report
+    // ── Collecte des fichiers QC pour PHYLO_REPORT ────────────────────────────
+    // On collecte tous les fichiers de chaque outil QC en une liste.
+    // Nextflow les stage tous dans le même workdir de PHYLO_REPORT,
+    // et le script Python lit ./ pour trouver les fichiers de chaque souche.
+    ch_kraken_files  = KRAKEN2.out.report
         .map { sample_id, report -> report }
         .collect()
-        .map { files -> files[0].parent }
 
-    ch_mlst_reports = MLST.out.mlst
+    ch_mlst_files    = MLST.out.mlst
         .map { sample_id, tsv -> tsv }
         .collect()
-        .map { files -> files[0].parent }
 
-    ch_qualimap_reports = QUALIMAP.out.results
+    ch_qualimap_dirs = QUALIMAP.out.results
         .collect()
-        .map { files -> files[0].parent }
 
-    ch_checkm2_reports = CHECKM2.out.report
+    ch_checkm2_files = CHECKM2.out.report
         .map { sample_id, tsv -> tsv }
         .collect()
-        .map { files -> files[0].parent }
 
     // ── Rapports phylogénétiques interactifs ───────────────────────────────────
     // Deux rapports sont générés en parallèle :
@@ -207,10 +202,10 @@ workflow {
 
     PHYLO_REPORT(
         ch_all_snps.mix(ch_core_snps),
-        ch_kraken_reports,
-        ch_mlst_reports,
-        ch_qualimap_reports,
-        ch_checkm2_reports
+        ch_kraken_files,
+        ch_mlst_files,
+        ch_qualimap_dirs,
+        ch_checkm2_files
     )
 
     // ── Rapport MultiQC ────────────────────────────────────────────────────────
