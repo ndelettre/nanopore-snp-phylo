@@ -18,25 +18,23 @@ process PHYLO_REPORT {
     publishDir "${params.outdir}", mode: 'copy'
 
     input:
-    tuple val(report_name), path(fasta), path(treefile)
-    path kraken_reports   // dossier contenant les *.kraken2.report
-    path mlst_reports     // dossier contenant les *.mlst.tsv
-    path qualimap_reports // dossier contenant les *_qualimap/
-    path checkm2_reports  // dossier contenant les *_checkm2_quality_report.tsv
+tuple val(report_name), path(fasta), path(treefile)
+path kraken_files    // liste des *.kraken2.report
+path mlst_files      // liste des *.mlst.tsv
+path qualimap_dirs   // liste des *_qualimap/
+path checkm2_files   // liste des *_checkm2_quality_report.tsv
 
-    output:
-    path "${report_name}.html"
+script:
+"""
+python3 ${projectDir}/bin/phylo_report.py \\
+    --fasta        ${fasta} \\
+    --tree         ${treefile} \\
+    --output       ${report_name}.html \\
+    --title        "Comparaison génomique des souches bactériennes" \\
+    --kraken_dir   ./ \\
+    --mlst_dir     ./ \\
+    --qualimap_dir ./ \\
+    --checkm2_dir  ./
+"""
 
-    script:
-    """
-    python3 ${projectDir}/bin/phylo_report.py \\
-        --fasta        ${fasta} \\
-        --tree         ${treefile} \\
-        --output       ${report_name}.html \\
-        --title        "Comparaison génomique des souches bactériennes" \\
-        --kraken_dir   ${kraken_reports} \\
-        --mlst_dir     ${mlst_reports} \\
-        --qualimap_dir ${qualimap_reports} \\
-        --checkm2_dir  ${checkm2_reports}
-    """
 }
