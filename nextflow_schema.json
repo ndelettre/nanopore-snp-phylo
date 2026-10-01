@@ -29,6 +29,12 @@
                     "format": "file-path",
                     "description": "Chemin vers la base de données CheckM2 (fichier uniref100.KO.1.dmnd).",
                     "fa_icon": "fas fa-database"
+                },
+                "reference_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Optionnel : assemblage de référence (FASTA non compressé) ajouté au typage MLST et à l'analyse SNP/phylogénie. Le nom du fichier (jusqu'au premier point) devient le nom de la souche.",
+                    "fa_icon": "fas fa-dna"
                 }
             }
         },
