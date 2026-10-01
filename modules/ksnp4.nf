@@ -63,11 +63,16 @@ process KSNP4 {
     # kSNP4 requiert un fichier "in_list" au format :
     #   /chemin/absolu/vers/genome.fasta<TAB>NomEchantillon
     # On génère ce fichier dynamiquement à partir des fichiers reçus.
-    # basename extrait le nom du fichier, sed supprime le suffixe "_polished".
+    # Nom = nom du fichier jusqu'au premier point (même règle que getSimpleName()
+    # dans main.nf), puis sed supprime le suffixe "_polished" des assemblages
+    # Medaka. Une référence ajoutée (.fasta, .fna, .fa…) obtient ainsi le même
+    # nom que son rapport MLST, ce qui permet la jointure dans PHYLO_REPORT.
     # ─────────────────────────────────────────────────────────────────────────
     > genome_list.txt
     for fasta in ${fastas}; do
-        sample_name=\$(basename "\$fasta" .fasta | sed 's/_polished//')
+        sample_name=\$(basename "\$fasta")
+        sample_name=\${sample_name%%.*}
+        sample_name=\$(echo "\$sample_name" | sed 's/_polished//')
         echo -e "\$(realpath \$fasta)\\t\$sample_name" >> genome_list.txt
     done
 

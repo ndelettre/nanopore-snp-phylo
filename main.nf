@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v2.4
+    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v1.1.0
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
     WORKFLOW :
@@ -23,16 +23,17 @@ nextflow.enable.dsl = 2
 params.fastq_dir    = null          // Dossier contenant les FASTQ (obligatoire)
 params.outdir       = "output"      // Dossier de sortie des rapports HTML
 params.resultsdir   = "results"     // Dossier de sortie des fichiers intermédiaires
-params.min_length   = 200           // Longueur minimale des reads (NanoFilt)
+params.min_length   = 1000          // Longueur minimale des reads (NanoFilt)
 params.min_quality  = 10            // Qualité minimale des reads Q-score (NanoFilt)
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
-params.medaka_model = "r1041_e82_400bps_sup_v5.2.0"
+params.medaka_model = "r1041_e82_400bps_bacterial_methylation"
                                     // Modèle Medaka : r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
 params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
 params.kraken_db    = "/data/kraken2_db"
                                     // Base de données Kraken2 (PlusPF-8 recommandée)
 params.checkm2_db   = "/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd"
                                     // Base de données CheckM2 (fichier .dmnd)
+params.reference_fasta = null       // Optionnel : assemblage de référence (FASTA non compressé)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPORTS DES MODULES
@@ -58,7 +59,7 @@ include { MULTIQC }      from './modules/multiqc.nf'      // Rapport QC agrégé
 // ─────────────────────────────────────────────────────────────────────────────
 log.info """
 ╔══════════════════════════════════════════════════════════╗
-║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v2.4    ║
+║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v1.1.0  ║
 ╚══════════════════════════════════════════════════════════╝
   Dossier FASTQ   : ${params.fastq_dir}
   Dossier sortie  : ${params.outdir}
@@ -69,6 +70,7 @@ log.info """
   Bootstrap       : ${params.bootstrap}
   Base Kraken2    : ${params.kraken_db}
   Base CheckM2    : ${params.checkm2_db}
+  Référence       : ${params.reference_fasta ?: 'aucune'}
 ──────────────────────────────────────────────────────────
 """.stripIndent()
 
@@ -108,6 +110,23 @@ workflow {
             tuple(sample_id, file)
         }
 
+    // ── Souche de référence optionnelle ───────────────────────────────────────
+    // Assemblage déjà fait, fourni via --reference_fasta : il rejoint MLST et
+    // kSNP4, mais ni le QC (Qualimap, QUAST, CheckM2) ni Kraken2.
+    // Nom de la souche = nom du fichier jusqu'au premier point.
+    // LEÇON : sans référence, Channel.empty() → les .mix() plus bas n'ajoutent
+    // rien et le pipeline se comporte exactement comme avant.
+    if (params.reference_fasta) {
+        if (params.reference_fasta.toString() =~ /\.gz$/) {
+            error "ERREUR : --reference_fasta doit être un FASTA non compressé (kSNP4 ne lit pas le .gz)."
+        }
+        ch_reference = Channel
+            .fromPath(params.reference_fasta, checkIfExists: true)
+            .map { fasta -> tuple(fasta.getSimpleName(), fasta) }
+    } else {
+        ch_reference = Channel.empty()
+    }
+
     // ── Filtrage et QC des reads ───────────────────────────────────────────────
     // NanoFilt supprime les reads trop courts ou de mauvaise qualité.
     // NanoStat génère un rapport statistique par échantillon pour MultiQC.
@@ -141,7 +160,7 @@ workflow {
     //   - CheckM2  : complétude et contamination biologiques
     QUALIMAP(MEDAKA.out.bam)
     QUAST(MEDAKA.out.assembly)
-    MLST(MEDAKA.out.assembly)
+    MLST(MEDAKA.out.assembly.mix(ch_reference))
     ch_checkm2_db = Channel.fromPath(params.checkm2_db, checkIfExists: true).first()
     CHECKM2(MEDAKA.out.assembly, ch_checkm2_db)
 
@@ -154,6 +173,7 @@ workflow {
     // du nom de fichier). .collect() attend que toutes les souches soient
     // assemblées avant de lancer kSNP4.
     ch_all_assemblies = MEDAKA.out.assembly
+        .mix(ch_reference)
         .map { sample_id, fasta -> fasta }
         .collect()
 

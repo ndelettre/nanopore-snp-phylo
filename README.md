@@ -72,6 +72,7 @@ nextflow run ndelettre/nanopore-snp-phylo \
 | `checkm2_db` | Chemin vers le fichier `uniref100.KO.1.dmnd` | `/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd` |
 | `outdir` | Dossier de sortie des rapports HTML | `output` |
 | `resultsdir` | Dossier de sortie des fichiers intermédiaires | `results` |
+| `reference_fasta` | Optionnel : assemblage de référence (FASTA non compressé) ajouté au MLST et à kSNP4. Le nom du fichier jusqu'au premier point devient le nom de la souche | — |
 
 ### Filtrage des reads
 
@@ -162,6 +163,7 @@ Deux rapports sont produits :
 
 ## Notes
 
+- Une souche de référence déjà assemblée peut être ajoutée avec `--reference_fasta`. Elle apparaît dans l'arbre, la matrice SNP et le tableau MLST, avec « N/A » dans les tableaux QC et Kraken2. Son nom ne doit pas être identique à celui d'un échantillon du run, et elle compte dans les seuils de 3 et 4 souches ci-dessous.
 - Le pipeline requiert **au minimum 3 souches** pour produire un arbre phylogénétique, et **au minimum 4** pour le bootstrap.
 - Le modèle Medaka doit correspondre à la flowcell et au mode de basecalling utilisés dans MinKNOW lors du séquençage.
 - Les bases de données Kraken2 et CheckM2 sont stockées en dehors du pipeline et réutilisées entre les runs.
