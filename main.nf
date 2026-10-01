@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v2.4
+    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v1.1.0
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
     WORKFLOW :
@@ -23,10 +23,10 @@ nextflow.enable.dsl = 2
 params.fastq_dir    = null          // Dossier contenant les FASTQ (obligatoire)
 params.outdir       = "output"      // Dossier de sortie des rapports HTML
 params.resultsdir   = "results"     // Dossier de sortie des fichiers intermédiaires
-params.min_length   = 200           // Longueur minimale des reads (NanoFilt)
+params.min_length   = 1000          // Longueur minimale des reads (NanoFilt)
 params.min_quality  = 10            // Qualité minimale des reads Q-score (NanoFilt)
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
-params.medaka_model = "r1041_e82_400bps_sup_v5.2.0"
+params.medaka_model = "r1041_e82_400bps_bacterial_methylation"
                                     // Modèle Medaka : r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
 params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
 params.kraken_db    = "/data/kraken2_db"
@@ -59,7 +59,7 @@ include { MULTIQC }      from './modules/multiqc.nf'      // Rapport QC agrégé
 // ─────────────────────────────────────────────────────────────────────────────
 log.info """
 ╔══════════════════════════════════════════════════════════╗
-║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v2.4    ║
+║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v1.1.0  ║
 ╚══════════════════════════════════════════════════════════╝
   Dossier FASTQ   : ${params.fastq_dir}
   Dossier sortie  : ${params.outdir}
