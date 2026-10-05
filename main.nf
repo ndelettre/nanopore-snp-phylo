@@ -5,7 +5,7 @@
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
     WORKFLOW :
-       NANOFILT → NANOSTAT → KRAKEN2 (identification espèce)
+       NANOFILT → NANOSTAT → KRAKEN2 → BRACKEN (identification espèce)
                           → FLYE → MEDAKA → QUALIMAP
                                           → QUAST
                                           → MLST
@@ -42,6 +42,8 @@ params.reference_fasta = null       // Optionnel : assemblage de référence (FA
 include { NANOFILT }     from './modules/nanofilt.nf'     // Filtrage qualité des reads
 include { NANOSTAT }     from './modules/nanostat.nf'     // Statistiques QC des reads
 include { KRAKEN2 }      from './modules/kraken2.nf'      // Identification taxonomique
+include { KRAKEN2_REFERENCE } from './modules/kraken2.nf' // Espèce de la référence
+include { BRACKEN }      from './modules/bracken.nf'      // Réestimation au rang espèce
 include { FLYE }         from './modules/flye.nf'         // Assemblage de novo
 include { MEDAKA }       from './modules/medaka.nf'       // Polissage des assemblages
 include { QUALIMAP }     from './modules/qualimap.nf'     // QC du mapping BAM
@@ -112,7 +114,8 @@ workflow {
 
     // ── Souche de référence optionnelle ───────────────────────────────────────
     // Assemblage déjà fait, fourni via --reference_fasta : il rejoint MLST et
-    // kSNP4, mais ni le QC (Qualimap, QUAST, CheckM2) ni Kraken2.
+    // kSNP4, mais pas le QC (Qualimap, QUAST, CheckM2). Kraken2 ne sert qu'à
+    // afficher son espèce dans le rapport.
     // Nom de la souche = nom du fichier jusqu'au premier point.
     // LEÇON : sans référence, Channel.empty() → les .mix() plus bas n'ajoutent
     // rien et le pipeline se comporte exactement comme avant.
@@ -140,6 +143,13 @@ workflow {
     // la référence est partagée entre toutes les souches sans être consommée.
     ch_kraken_db = Channel.fromPath(params.kraken_db, checkIfExists: true).first()
     KRAKEN2(NANOFILT.out.reads, ch_kraken_db)
+
+    // Bracken redistribue au rang espèce les reads que Kraken2 a laissés au
+    // rang genre (reads communs à plusieurs espèces proches).
+    BRACKEN(KRAKEN2.out.report, ch_kraken_db)
+
+    // Espèce de la référence : classification de ses contigs.
+    KRAKEN2_REFERENCE(ch_reference, ch_kraken_db)
 
     // ── Assemblage de novo ─────────────────────────────────────────────────────
     // Flye est optimisé pour les reads longs avec taux d'erreur élevé.
@@ -189,9 +199,17 @@ workflow {
     // On collecte tous les fichiers de chaque outil QC en une liste.
     // Nextflow les stage tous dans le même workdir de PHYLO_REPORT,
     // et le script Python lit ./ pour trouver les fichiers de chaque souche.
-    ch_kraken_files  = KRAKEN2.out.report
-        .map { sample_id, report -> report }
+    ch_kraken_files  = BRACKEN.out.abundance
+        .map { sample_id, tsv -> tsv }
         .collect()
+
+    // LEÇON : sans référence le channel est vide, et .collect() n'émettrait
+    // rien → PHYLO_REPORT ne serait jamais lancé. .ifEmpty([]) fournit une
+    // liste vide à la place.
+    ch_ref_kraken_files = KRAKEN2_REFERENCE.out.classification
+        .map { sample_id, report, out -> [report, out] }
+        .collect()
+        .ifEmpty([])
 
     ch_mlst_files    = MLST.out.mlst
         .map { sample_id, tsv -> tsv }
@@ -223,6 +241,7 @@ workflow {
     PHYLO_REPORT(
         ch_all_snps.mix(ch_core_snps),
         ch_kraken_files,
+        ch_ref_kraken_files,
         ch_mlst_files,
         ch_qualimap_dirs,
         ch_checkm2_files

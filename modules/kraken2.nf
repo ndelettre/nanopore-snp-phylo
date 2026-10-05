@@ -44,3 +44,38 @@ process KRAKEN2 {
         ${reads}
     """
 }
+
+/*
+    KRAKEN2_REFERENCE — Espèce de la souche de référence (--reference_fasta)
+    La référence est un assemblage : on classe ses contigs et on garde la
+    sortie par séquence (taxid + longueur). PHYLO_REPORT retient l'espèce qui
+    couvre le plus de paires de bases, pour qu'un plasmide classé ailleurs ne
+    l'emporte pas sur le chromosome. Pas de Bracken ici : il travaille sur des
+    reads, pas sur quelques contigs.
+*/
+process KRAKEN2_REFERENCE {
+    tag "${sample_id}"
+    label 'process_medium'
+    publishDir "${params.resultsdir}/kraken2", mode: 'copy'
+
+    input:
+    tuple val(sample_id), path(assembly)
+    path db
+
+    output:
+    tuple val(sample_id),
+          path("${sample_id}.ref_kraken2.report"),
+          path("${sample_id}.ref_kraken2.out"),     emit: classification
+
+    script:
+    """
+    set -euo pipefail
+
+    kraken2 \\
+        --db ${db} \\
+        --threads ${task.cpus} \\
+        --report ${sample_id}.ref_kraken2.report \\
+        --output ${sample_id}.ref_kraken2.out \\
+        ${assembly}
+    """
+}

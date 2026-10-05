@@ -12,7 +12,7 @@ Ce pipeline analyse des souches bactériennes séquencées sur MinION (R10.4.1, 
 
 ```
 NANOFILT → NANOSTAT ──────────────────────────────────────────────── MULTIQC
-         → KRAKEN2 (identification taxonomique)                           ↑
+         → KRAKEN2 → BRACKEN (identification taxonomique)                 ↑
          → FLYE → MEDAKA → QUALIMAP ────────────────────────────────────┤
                          → QUAST ────────────────────────────────────────┤
                          → MLST ─────────────────────────────────────────┤
@@ -24,7 +24,7 @@ NANOFILT → NANOSTAT ───────────────────�
 
 - [Nextflow](https://www.nextflow.io/) ≥ 22.10.0
 - [Docker](https://www.docker.com/)
-- Base de données Kraken2 PlusPF-8 (~8 GB)
+- Base de données Kraken2 PlusPF-8 (~8 GB), avec ses fichiers `databaseXXXmers.kmer_distrib` pour Bracken (inclus dans les bases préconstruites)
 - Base de données CheckM2 (~2 GB)
 
 ### Téléchargement des bases de données
@@ -118,6 +118,7 @@ results/                         ← Fichiers intermédiaires
 ├── nanofilt/                    ← Reads filtrés
 ├── nanostat/                    ← Statistiques qualité des reads
 ├── kraken2/                     ← Rapports taxonomiques
+├── bracken/                     ← Abondances réestimées au rang espèce
 ├── flye/                        ← Assemblages bruts
 ├── medaka/                      ← Assemblages polishés
 ├── qualimap/                    ← QC du mapping BAM
@@ -135,7 +136,7 @@ Chaque rapport HTML contient :
   - Couverture ≥95% du génome à ≥30X (Qualimap)
   - Complétude ≥99% (CheckM2)
   - Contamination <1% (CheckM2)
-- **Identification taxonomique** — espèces >1% par barcode (Kraken2)
+- **Identification taxonomique** — espèces >1% par barcode (Kraken2 + Bracken). Bracken réattribue à l'espèce les reads que Kraken2 laisse au rang genre ; il utilise la plus grande longueur de read disponible dans la base (300 pb pour les bases préconstruites)
 - **Typage MLST** — séquence type et allèles (schéma auto-détecté via PubMLST)
 - **Arbre phylogénétique** — ML enraciné au midpoint avec valeurs de bootstrap
 - **Matrice de distances SNP** — distances pairwise en nombre de SNPs
@@ -151,6 +152,7 @@ Deux rapports sont produits :
 | NanoFilt | 2.8.0 | Filtrage qualité des reads |
 | NanoStat | 1.6.0 | Statistiques des reads |
 | Kraken2 | 2.1.3 | Identification taxonomique |
+| Bracken | 3.1 | Réestimation des abondances au rang espèce |
 | Flye | 2.9.6 | Assemblage de novo |
 | Medaka | 2.2.1 | Polissage des assemblages |
 | Qualimap | 2.3 | QC du mapping BAM |
@@ -163,7 +165,7 @@ Deux rapports sont produits :
 
 ## Notes
 
-- Une souche de référence déjà assemblée peut être ajoutée avec `--reference_fasta`. Elle apparaît dans l'arbre, la matrice SNP et le tableau MLST, avec « N/A » dans les tableaux QC et Kraken2. Son nom ne doit pas être identique à celui d'un échantillon du run, et elle compte dans les seuils de 3 et 4 souches ci-dessous.
+- Une souche de référence déjà assemblée peut être ajoutée avec `--reference_fasta`. Elle apparaît dans l'arbre, la matrice SNP et le tableau MLST, avec « N/A » dans le tableau QC. Dans l'identification taxonomique, son espèce est affichée (Kraken2 sur ses contigs, espèce couvrant le plus de paires de bases) avec « N/A » dans les autres colonnes. Elle n'est pas comptée dans le nombre d'échantillons du rapport. Son nom ne doit pas être identique à celui d'un échantillon du run, et elle compte dans les seuils de 3 et 4 souches ci-dessous.
 - Le pipeline requiert **au minimum 3 souches** pour produire un arbre phylogénétique, et **au minimum 4** pour le bootstrap.
 - Le modèle Medaka doit correspondre à la flowcell et au mode de basecalling utilisés dans MinKNOW lors du séquençage.
 - Les bases de données Kraken2 et CheckM2 sont stockées en dehors du pipeline et réutilisées entre les runs.
