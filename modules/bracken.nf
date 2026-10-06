@@ -17,7 +17,6 @@
 */
 process BRACKEN {
     tag "${sample_id}"
-    label 'process_mono'
     publishDir "${params.resultsdir}/bracken", mode: 'copy'
 
     input:

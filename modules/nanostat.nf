@@ -18,7 +18,6 @@
 process NANOSTAT {
 
     tag "${sample_id}"
-    label 'process_mono'
 
     publishDir "${params.resultsdir}/nanostat/${sample_id}", mode: 'copy'
 
@@ -33,8 +32,8 @@ process NANOSTAT {
     script:
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : task.cpus est une variable Nextflow automatique.
-    // Elle prend la valeur du label associé au process dans nextflow.config.
-    // Ici process_mono → cpus = 1. C'est plus fiable qu'un params.threads
+    // Elle prend la valeur `cpus` du bloc withName du process dans
+    // nextflow.config (ici 1). C'est plus fiable qu'un params.threads
     // global qui peut diverger des ressources réellement allouées.
     // ─────────────────────────────────────────────────────────────────────────
     """

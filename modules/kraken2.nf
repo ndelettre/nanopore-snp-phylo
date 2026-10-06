@@ -2,7 +2,7 @@
 ========================================================================================
     MODULE : KRAKEN2 — Identification taxonomique et contrôle de pureté
 ========================================================================================
-    Classifie les reads filtrés contre une base de données Kraken2 (PlusPF-8)
+    Classifie les reads filtrés contre une base de données Kraken2 (PlusPF-16)
     pour identifier l'espèce dominante et détecter les contaminations.
 
     Utilisé comme contrôle qualité avant l'assemblage :
@@ -11,20 +11,19 @@
       - Alerte si la souche n'est pas pure
 
     Outil  : Kraken2
-    Entrée : reads filtrés (CHOPPER) + base de données PlusPF-8
+    Entrée : reads filtrés (CHOPPER) + base de données PlusPF-16
     Sortie : rapport taxonomique par souche (format Kraken2 standard)
              → agrégé dans PHYLO_REPORT pour le tableau HTML
 ========================================================================================
 */
 process KRAKEN2 {
     tag "${sample_id}"
-    label 'process_medium'
     publishDir "${params.resultsdir}/kraken2", mode: 'copy'
 
     input:
     // Reads filtrés par Chopper
     tuple val(sample_id), path(reads)
-    // Base de données Kraken2 (PlusPF-8 recommandée)
+    // Base de données Kraken2 (PlusPF-16 recommandée)
     path db
 
     output:
@@ -55,7 +54,6 @@ process KRAKEN2 {
 */
 process KRAKEN2_REFERENCE {
     tag "${sample_id}"
-    label 'process_medium'
     publishDir "${params.resultsdir}/kraken2", mode: 'copy'
 
     input:

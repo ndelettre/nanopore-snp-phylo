@@ -1,6 +1,5 @@
 process PHYLO_REPORT {
     tag "${report_name}"
-    label 'process_low'
     publishDir "${params.outdir}", mode: 'copy'
 
     input:

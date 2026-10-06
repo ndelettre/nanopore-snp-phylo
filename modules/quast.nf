@@ -18,7 +18,6 @@
 */
 process QUAST {
     tag "${sample_id}"
-    label 'process_low'
     publishDir "${params.resultsdir}/quast/${sample_id}", mode: 'copy'
 
     input:

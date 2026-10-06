@@ -22,7 +22,6 @@
 */
 process QUALIMAP {
     tag "${sample_id}"
-    label 'process_low'
     publishDir "${params.resultsdir}/qualimap", mode: 'copy'
 
     input:
@@ -36,6 +35,10 @@ process QUALIMAP {
     path "${sample_id}_qualimapReport.html", emit: html
 
     script:
+    // Java reçoit 75% de la mémoire de la tâche : la JVM consomme aussi de la
+    // mémoire hors de sa limite (-Xmx), et Docker tue la tâche si l'ensemble
+    // dépasse task.memory.
+    def java_mem = (task.memory.toMega() * 0.75) as long
     """
     set -euo pipefail
 
@@ -43,7 +46,7 @@ process QUALIMAP {
         -bam ${bam} \\
         -outdir ${sample_id}_qualimap \\
         -outformat HTML \\
-        --java-mem-size=${task.memory.toGiga()}G \\
+        --java-mem-size=${java_mem}M \\
         -nt ${task.cpus}
 
     # Copie du rapport HTML avec le sample_id dans le nom

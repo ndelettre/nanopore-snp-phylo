@@ -24,12 +24,11 @@ process CHOPPER {
     // LEÇON : Les directives définissent le comportement du process.
     //
     // tag       → affiche le nom de l'échantillon dans les logs (très utile)
-    // label     → regroupe les process par profil de ressources (défini dans nextflow.config)
+    // (CPU, mémoire et durée sont réglés par outil dans nextflow.config)
     // publishDir → copie les fichiers de sortie dans le dossier résultats
     //              "mode: 'copy'" copie le fichier (vs 'symlink' qui crée un lien)
     // ─────────────────────────────────────────────────────────────────────────
     tag "${sample_id}"
-    label 'process_low'
 
     publishDir "${params.resultsdir}/chopper/${sample_id}", mode: 'copy'
 

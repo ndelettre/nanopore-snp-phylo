@@ -27,7 +27,6 @@ process KSNP4 {
     // LEÇON : Pas de tag ici car kSNP4 traite TOUS les échantillons ensemble.
     // Il n'y a donc pas de "sample_id" individuel.
     // ─────────────────────────────────────────────────────────────────────────
-    label 'process_high'
 
     publishDir "${params.resultsdir}/ksnp4", mode: 'copy'
 

@@ -24,18 +24,18 @@ CHOPPER  → NANOSTAT ───────────────────�
 
 - [Nextflow](https://www.nextflow.io/) ≥ 22.10.0
 - [Docker](https://www.docker.com/)
-- Base de données Kraken2 PlusPF-8 (~8 GB), avec ses fichiers `databaseXXXmers.kmer_distrib` pour Bracken (inclus dans les bases préconstruites)
+- Base de données Kraken2 PlusPF-16 (~15 GB sur disque et en RAM), avec ses fichiers `databaseXXXmers.kmer_distrib` pour Bracken (inclus dans les bases préconstruites)
 - Base de données CheckM2 (~2 GB)
 
 ### Téléchargement des bases de données
 
 ```bash
-# Kraken2 PlusPF-8
+# Kraken2 PlusPF-16 (version du 26/06/2026 ; nécessite 20 GB de RAM par tâche Kraken2)
 mkdir -p /data/kraken2_db
 cd /data/kraken2_db
-wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_08gb_20241228.tar.gz
-tar -xzf k2_pluspf_08gb_20241228.tar.gz
-rm k2_pluspf_08gb_20241228.tar.gz
+wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_16_GB_20260626.tar.gz
+tar -xzf k2_pluspf_16_GB_20260626.tar.gz
+rm k2_pluspf_16_GB_20260626.tar.gz
 
 # CheckM2
 mkdir -p /data/checkm2_db

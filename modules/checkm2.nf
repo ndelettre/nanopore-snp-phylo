@@ -20,7 +20,6 @@
 */
 process CHECKM2 {
     tag "${sample_id}"
-    label 'process_medium'
     publishDir "${params.resultsdir}/checkm2", mode: 'copy'
 
     input:
