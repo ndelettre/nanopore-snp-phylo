@@ -1,16 +1,18 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES v1.1.0
+    PIPELINE NANOPORE - ANALYSE DE SOUCHES BACTÉRIENNES
+    (version : manifest.version dans nextflow.config)
     Compatible EPI2ME | Nextflow DSL2
 ========================================================================================
     WORKFLOW :
-       NANOFILT → NANOSTAT → KRAKEN2 → BRACKEN (identification espèce)
+       CHOPPER → NANOSTAT → KRAKEN2 → BRACKEN (identification espèce)
                           → FLYE → MEDAKA → QUALIMAP
                                           → QUAST
                                           → MLST
                                           → CHECKM2
-                                          → KSNP4 → IQTREE → PHYLO_REPORT
+                                          → KSNP4 → IQTREE ×2 → PHYLO_REPORT ×2
+                                            (tous les SNPs / SNPs core)
                                           → MULTIQC
 ========================================================================================
 */
@@ -23,8 +25,8 @@ nextflow.enable.dsl = 2
 params.fastq_dir    = null          // Dossier contenant les FASTQ (obligatoire)
 params.outdir       = "output"      // Dossier de sortie des rapports HTML
 params.resultsdir   = "results"     // Dossier de sortie des fichiers intermédiaires
-params.min_length   = 1000          // Longueur minimale des reads (NanoFilt)
-params.min_quality  = 10            // Qualité minimale des reads Q-score (NanoFilt)
+params.min_length   = 1000          // Longueur minimale des reads (Chopper)
+params.min_quality  = 10            // Qualité minimale des reads Q-score (Chopper)
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
 params.medaka_model = "r1041_e82_400bps_bacterial_methylation"
                                     // Modèle Medaka : r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
@@ -39,7 +41,7 @@ params.reference_fasta = null       // Optionnel : assemblage de référence (FA
 // IMPORTS DES MODULES
 // Chaque module = un outil = un fichier .nf dans le dossier modules/.
 // ─────────────────────────────────────────────────────────────────────────────
-include { NANOFILT }     from './modules/nanofilt.nf'     // Filtrage qualité des reads
+include { CHOPPER }      from './modules/chopper.nf'      // Filtrage qualité des reads
 include { NANOSTAT }     from './modules/nanostat.nf'     // Statistiques QC des reads
 include { KRAKEN2 }      from './modules/kraken2.nf'      // Identification taxonomique
 include { KRAKEN2_REFERENCE } from './modules/kraken2.nf' // Espèce de la référence
@@ -68,7 +70,7 @@ workflow {
     // Affiche les paramètres utilisés pour traçabilité dans les logs.
     log.info """
 ╔══════════════════════════════════════════════════════════╗
-║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v1.1.0  ║
+║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v${workflow.manifest.version.padRight(7)}║
 ╚══════════════════════════════════════════════════════════╝
   Dossier FASTQ   : ${params.fastq_dir}
   Dossier sortie  : ${params.outdir}
@@ -152,10 +154,10 @@ workflow {
     }
 
     // ── Filtrage et QC des reads ───────────────────────────────────────────────
-    // NanoFilt supprime les reads trop courts ou de mauvaise qualité.
+    // Chopper supprime les reads trop courts ou de mauvaise qualité.
     // NanoStat génère un rapport statistique par échantillon pour MultiQC.
-    NANOFILT(ch_fastq)
-    NANOSTAT(NANOFILT.out.reads)
+    CHOPPER(ch_fastq)
+    NANOSTAT(CHOPPER.out.reads)
 
     // ── Identification taxonomique ─────────────────────────────────────────────
     // Kraken2 classifie les reads contre la base PlusPF-8 pour confirmer
@@ -163,7 +165,7 @@ workflow {
     // LEÇON : .first() transforme le channel en value channel réutilisable —
     // la référence est partagée entre toutes les souches sans être consommée.
     ch_kraken_db = Channel.fromPath(params.kraken_db, checkIfExists: true).first()
-    KRAKEN2(NANOFILT.out.reads, ch_kraken_db)
+    KRAKEN2(CHOPPER.out.reads, ch_kraken_db)
 
     // Bracken redistribue au rang espèce les reads que Kraken2 a laissés au
     // rang genre (reads communs à plusieurs espèces proches).
@@ -174,13 +176,13 @@ workflow {
 
     // ── Assemblage de novo ─────────────────────────────────────────────────────
     // Flye est optimisé pour les reads longs avec taux d'erreur élevé.
-    FLYE(NANOFILT.out.reads)
+    FLYE(CHOPPER.out.reads)
 
     // ── Polissage des assemblages ──────────────────────────────────────────────
     // Medaka corrige les erreurs résiduelles via un modèle de réseau de neurones.
     // LEÇON : .join() garantit que chaque souche reçoit SES propres reads
     // et SON propre assemblage, en les associant par sample_id.
-    ch_medaka_input = NANOFILT.out.reads.join(FLYE.out.assembly)
+    ch_medaka_input = CHOPPER.out.reads.join(FLYE.out.assembly)
     MEDAKA(ch_medaka_input)
 
     // ── Contrôle qualité des assemblages ──────────────────────────────────────
@@ -198,8 +200,8 @@ workflow {
     // ── SNP calling multi-souches ──────────────────────────────────────────────
     // kSNP4 compare tous les assemblages simultanément via une approche k-mer
     // (sans alignement global) — robuste aux réarrangements génomiques.
-    // Produit deux alignements : tous les SNPs et SNPs core (présents dans
-    // toutes les souches).
+    // Produit deux alignements : tous les SNPs (SNPs_all_matrix.fasta) et
+    // SNPs core (présents dans toutes les souches).
     // LEÇON : .map() extrait les FASTA sans le sample_id (kSNP4 le déduit
     // du nom de fichier). .collect() attend que toutes les souches soient
     // assemblées avant de lancer kSNP4.
@@ -210,11 +212,23 @@ workflow {
 
     KSNP4(ch_all_assemblies)
 
-    // ── Arbre phylogénétique ───────────────────────────────────────────────────
-    // IQ-TREE construit l'arbre par maximum de vraisemblance (GTR+G+ASC).
-    // ASC = ascertainment bias correction, obligatoire pour un alignement
-    // de SNPs uniquement (sites invariants exclus par kSNP4).
-    IQTREE(KSNP4.out.snp_alignment)
+    // ── Arbres phylogénétiques ─────────────────────────────────────────────────
+    // IQ-TREE construit un arbre par maximum de vraisemblance (GTR+G+ASC)
+    // pour chaque alignement. ASC = ascertainment bias correction, obligatoire
+    // pour un alignement de SNPs uniquement (sites invariants exclus par kSNP4).
+    // Chaque alignement porte le nom du rapport qu'il alimente :
+    //   - report_all_snps  : tous les SNPs (distances fiables même avec une
+    //                        souche éloignée, positions manquantes ignorées)
+    //   - report_core_snps : SNPs core uniquement (plus conservateur,
+    //                        positions présentes dans toutes les souches)
+    ch_alignments = KSNP4.out.all_snp_alignment
+        .map { fasta -> tuple("report_all_snps", fasta) }
+        .mix(
+            KSNP4.out.core_snp_alignment
+                .map { fasta -> tuple("report_core_snps", fasta) }
+        )
+
+    IQTREE(ch_alignments)
 
     // ── Collecte des fichiers QC pour PHYLO_REPORT ────────────────────────────
     // On collecte tous les fichiers de chaque outil QC en une liste.
@@ -244,23 +258,13 @@ workflow {
         .collect()
 
     // ── Rapports phylogénétiques interactifs ───────────────────────────────────
-    // Deux rapports sont générés en parallèle :
-    //   - report_all_snps  : basé sur tous les SNPs (vision globale)
-    //   - report_core_snps : basé sur les SNPs core uniquement (plus conservateur,
-    //                        positions présentes dans toutes les souches)
-    // LEÇON : .combine() associe chaque FASTA avec l'arbre IQ-TREE.
-    // .mix() fusionne les deux channels pour lancer PHYLO_REPORT deux fois
-    // en parallèle.
-    ch_all_snps = KSNP4.out.snp_alignment
-        .map { fasta -> tuple("report_all_snps", fasta) }
-        .combine(IQTREE.out.tree)
-
-    ch_core_snps = KSNP4.out.core_snp_matrix
-        .map { fasta -> tuple("report_core_snps", fasta) }
-        .combine(IQTREE.out.tree)
+    // Un rapport par alignement, chacun avec son propre arbre.
+    // LEÇON : .join() associe chaque alignement à SON arbre par le nom du
+    // rapport → [report_name, fasta, treefile].
+    ch_reports = ch_alignments.join(IQTREE.out.tree)
 
     PHYLO_REPORT(
-        ch_all_snps.mix(ch_core_snps),
+        ch_reports,
         ch_kraken_files,
         ch_ref_kraken_files,
         ch_mlst_files,

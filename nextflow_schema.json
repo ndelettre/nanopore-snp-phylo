@@ -42,7 +42,7 @@
             "title": "Filtrage des reads",
             "type": "object",
             "fa_icon": "fas fa-filter",
-            "description": "Paramètres de filtrage NanoFilt.",
+            "description": "Paramètres de filtrage Chopper.",
             "properties": {
                 "min_length": {
                     "type": "integer",
@@ -97,7 +97,7 @@
             "properties": {
                 "bootstrap": {
                     "type": "boolean",
-                    "description": "Activer le bootstrap IQ-TREE (nécessite ≥4 souches).",
+                    "description": "Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches).",
                     "default": true,
                     "fa_icon": "fas fa-tree"
                 }

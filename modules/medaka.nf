@@ -5,6 +5,10 @@
     Medaka corrige les erreurs d'assemblage en remappant les reads originaux
     sur l'assemblage Flye. Il utilise un modèle de réseau de neurones
     entraîné spécifiquement pour chaque chimie de flowcell Nanopore.
+
+    Les reads sont ensuite remappés sur l'assemblage poli (minimap2 +
+    samtools, présents dans l'image Medaka) : Qualimap mesure ainsi la
+    couverture de l'assemblage final, et non celle du brouillon Flye.
 ========================================================================================
 */
 
@@ -18,7 +22,7 @@ process MEDAKA {
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : Ici l'input est un tuple à 3 éléments.
     // Il provient du .join() dans main.nf qui combine :
-    //   - NANOFILT.out.reads    → [sample_id, fastq_filtré]
+    //   - CHOPPER.out.reads     → [sample_id, fastq_filtré]
     //   - FLYE.out.assembly     → [sample_id, assembly.fasta]
     // Le .join() les fusionne en : [sample_id, fastq_filtré, assembly.fasta]
     // ─────────────────────────────────────────────────────────────────────────
@@ -56,8 +60,10 @@ process MEDAKA {
     # Renommage du consensus final
     cp medaka_output/consensus.fasta ${sample_id}_polished.fasta
 
-    # Exposer le BAM du polishing pour Qualimap
-    cp medaka_output/calls_to_draft.bam     ${sample_id}.bam
-    cp medaka_output/calls_to_draft.bam.bai ${sample_id}.bam.bai
+    # Remapping des reads sur l'assemblage poli pour Qualimap
+    # (le BAM interne de Medaka, calls_to_draft.bam, porte sur le brouillon Flye)
+    minimap2 -ax map-ont -t ${task.cpus} ${sample_id}_polished.fasta ${filtered_fastq} \
+        | samtools sort -@ ${task.cpus} -o ${sample_id}.bam -
+    samtools index ${sample_id}.bam
     """
 }

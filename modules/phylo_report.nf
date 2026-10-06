@@ -27,6 +27,7 @@ process PHYLO_REPORT {
         --mlst_dir     ./ \\
         --qualimap_dir ./ \\
         --checkm2_dir  ./ \\
-        --reference_name "${reference_name}"
+        --reference_name "${reference_name}" \\
+        --pipeline_version "${workflow.manifest.version}"
     """
 }

@@ -165,8 +165,8 @@ def build_tree_traces(tree, nodes, bootstrap=True):
                 bs_y.append(y)
                 bs_text.append(str(int(val)))
                 bs_colors.append(
-                    "#27ae60" if val >= 90 else
-                    "#f39c12" if val >= 70 else
+                    "#27ae60" if val >= 95 else
+                    "#f39c12" if val >= 80 else
                     "#e74c3c"
                 )
         if bs_x:
@@ -177,7 +177,7 @@ def build_tree_traces(tree, nodes, bootstrap=True):
                 textposition="top center",
                 textfont=dict(size=9),
                 marker=dict(size=6, color=bs_colors, symbol="square"),
-                hovertemplate="Bootstrap : %{text}<extra></extra>",
+                hovertemplate="UFBoot : %{text}<extra></extra>",
                 showlegend=False
             ))
     return traces
@@ -652,7 +652,7 @@ def build_mlst_table(samples, mlst_data):
 
 def build_report(fasta_path, tree_path, output_path, title,
                  kraken_dir, mlst_dir, qualimap_dir, checkm2_dir,
-                 software_versions, reference_name=None):
+                 software_versions, reference_name=None, pipeline_version=""):
 
     print(f"[1/8] Lecture du FASTA : {fasta_path}")
     sequences = read_fasta(fasta_path)
@@ -685,17 +685,15 @@ def build_report(fasta_path, tree_path, output_path, title,
     qualimap_data = parse_qualimap_reports(qualimap_dir)
     checkm2_data  = parse_checkm2_reports(checkm2_dir)
 
-    # Statistiques distances
-    dist_vals = matrix.values[np.triu_indices(len(matrix), k=1)]
+    # Statistiques distances : entre échantillons du run uniquement.
+    # La référence reste dans l'arbre et la heatmap, mais une souche éloignée
+    # fixerait la distance maximale et tirerait la moyenne vers le haut.
+    study    = [s for s in matrix.index if s != reference_name]
+    stat_mat = matrix.loc[study, study]
+    dist_vals = stat_mat.values[np.triu_indices(len(stat_mat), k=1)]
     dist_min  = int(dist_vals.min())  if len(dist_vals) else 0
     dist_max  = int(dist_vals.max())  if len(dist_vals) else 0
     dist_mean = f"{dist_vals.mean():.1f}" if len(dist_vals) else "N/A"
-
-    flat     = matrix.where(np.triu(np.ones(matrix.shape, dtype=bool), k=1))
-    pair_min = flat.stack().idxmin() if len(dist_vals) else ("—", "—")
-    pair_max = flat.stack().idxmax() if len(dist_vals) else ("—", "—")
-    pair_min_str = f"{pair_min[0]} / {pair_min[1]} ({dist_min} SNPs)"
-    pair_max_str = f"{pair_max[0]} / {pair_max[1]} ({dist_max} SNPs)"
 
     print(f"[7/8] Génération des figures Plotly...")
 
@@ -719,9 +717,9 @@ def build_report(fasta_path, tree_path, output_path, title,
     )
     if bootstrap_present:
         fig_tree.add_annotation(
-            text="Bootstrap : <span style='color:#27ae60'>■</span> ≥90  "
-                 "<span style='color:#f39c12'>■</span> ≥70  "
-                 "<span style='color:#e74c3c'>■</span> <70",
+            text="UFBoot : <span style='color:#27ae60'>■</span> ≥95  "
+                 "<span style='color:#f39c12'>■</span> ≥80  "
+                 "<span style='color:#e74c3c'>■</span> <80",
             xref="paper", yref="paper", x=0.01, y=0.01,
             showarrow=False, font=dict(size=10),
             bgcolor="rgba(255,255,255,0.85)",
@@ -742,7 +740,8 @@ def build_report(fasta_path, tree_path, output_path, title,
         margin=dict(l=110, r=80, t=60, b=130)
     )
 
-    tree_html    = fig_tree.to_html(full_html=False, include_plotlyjs="cdn", div_id="tree_div")
+    # Plotly embarqué dans le HTML (~3 Mo) : le rapport s'affiche sans internet
+    tree_html    = fig_tree.to_html(full_html=False, include_plotlyjs=True, div_id="tree_div")
     heatmap_html = fig_heatmap.to_html(full_html=False, include_plotlyjs=False, div_id="heatmap_div")
 
     # Tableaux QC
@@ -945,7 +944,7 @@ def build_report(fasta_path, tree_path, output_path, title,
     </div>
     <div class="header-right">
         <div class="date">{analysis_date}</div>
-        <div class="version">nanopore-snp-phylo v2.4</div>
+        <div class="version">nanopore-snp-phylo{f" v{pipeline_version}" if pipeline_version else ""}</div>
     </div>
 </header>
 
@@ -1007,7 +1006,7 @@ def build_report(fasta_path, tree_path, output_path, title,
     </div>
 
     <div class="phylo-section">
-        <h2>Arbre phylogénétique (IQ-TREE · GTR+G+ASC{"· Bootstrap 1000" if bootstrap_present else ""})</h2>
+        <h2>Arbre phylogénétique (IQ-TREE · GTR+G+ASC{" · Ultrafast bootstrap 1000" if bootstrap_present else ""})</h2>
         {tree_html}
     </div>
 
@@ -1049,9 +1048,10 @@ def main():
     parser.add_argument("--mlst_dir",     default=None,   help="Dossier rapports MLST")
     parser.add_argument("--qualimap_dir", default=None,   help="Dossier rapports Qualimap")
     parser.add_argument("--checkm2_dir",  default=None,   help="Dossier rapports CheckM2")
+    parser.add_argument("--pipeline_version", default="", help="Version du pipeline (manifest.version)")
     parser.add_argument("--reference_name", default="",   help="Nom de la souche de référence (exclue du nombre d'échantillons)")
     # Versions des logiciels (passées par le module Nextflow)
-    parser.add_argument("--version_nanofilt",  default="2.8.0")
+    parser.add_argument("--version_chopper",   default="0.9.0")
     parser.add_argument("--version_flye",      default="2.9.6")
     parser.add_argument("--version_medaka",    default="2.2.1")
     parser.add_argument("--version_ksnp4",     default="4.0")
@@ -1065,7 +1065,7 @@ def main():
     args = parser.parse_args()
 
     software_versions = {
-        "NanoFilt":  args.version_nanofilt,
+        "Chopper":   args.version_chopper,
         "Flye":      args.version_flye,
         "Medaka":    args.version_medaka,
         "kSNP4":     args.version_ksnp4,
@@ -1089,6 +1089,7 @@ def main():
         checkm2_dir  = args.checkm2_dir,
         software_versions = software_versions,
         reference_name    = args.reference_name or None,
+        pipeline_version  = args.pipeline_version,
     )
 
 

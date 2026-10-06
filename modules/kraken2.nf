@@ -11,7 +11,7 @@
       - Alerte si la souche n'est pas pure
 
     Outil  : Kraken2
-    Entrée : reads filtrés (NANOFILT) + base de données PlusPF-8
+    Entrée : reads filtrés (CHOPPER) + base de données PlusPF-8
     Sortie : rapport taxonomique par souche (format Kraken2 standard)
              → agrégé dans PHYLO_REPORT pour le tableau HTML
 ========================================================================================
@@ -22,7 +22,7 @@ process KRAKEN2 {
     publishDir "${params.resultsdir}/kraken2", mode: 'copy'
 
     input:
-    // Reads filtrés par NanoFilt
+    // Reads filtrés par Chopper
     tuple val(sample_id), path(reads)
     // Base de données Kraken2 (PlusPF-8 recommandée)
     path db

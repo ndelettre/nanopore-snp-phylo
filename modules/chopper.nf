@@ -1,6 +1,6 @@
 /*
 ========================================================================================
-    MODULE : NANOFILT
+    MODULE : CHOPPER — Filtrage qualité et longueur des reads
 ========================================================================================
     LEÇON : Un module Nextflow contient un seul "process".
     Un process a toujours cette structure :
@@ -11,10 +11,14 @@
             output:         ← ce qu'il produit
             script:         ← la commande shell à exécuter
         }
+
+    Chopper remplace NanoFilt (même auteur, W. De Coster) : même filtrage
+    sur la qualité moyenne et la longueur des reads, mais écrit en Rust,
+    multithread et maintenu. Il lit le FASTQ sur l'entrée standard.
 ========================================================================================
 */
 
-process NANOFILT {
+process CHOPPER {
 
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : Les directives définissent le comportement du process.
@@ -25,9 +29,9 @@ process NANOFILT {
     //              "mode: 'copy'" copie le fichier (vs 'symlink' qui crée un lien)
     // ─────────────────────────────────────────────────────────────────────────
     tag "${sample_id}"
-    label 'process_mono'
+    label 'process_low'
 
-    publishDir "${params.resultsdir}/nanofilt/${sample_id}", mode: 'copy'
+    publishDir "${params.resultsdir}/chopper/${sample_id}", mode: 'copy'
 
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : L'input est un tuple (paire) : [identifiant, fichier]
@@ -40,69 +44,43 @@ process NANOFILT {
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : L'output déclare ce que le process va produire.
     // On utilise des noms (.reads, .log) pour les référencer dans main.nf
-    // avec la syntaxe NANOFILT.out.reads
+    // avec la syntaxe CHOPPER.out.reads
     //
     // emit: → donne un nom à cet output pour y accéder facilement
     // ─────────────────────────────────────────────────────────────────────────
     output:
     tuple val(sample_id), path("${sample_id}_filtered.fastq.gz"), emit: reads
-    path "${sample_id}_nanofilt.log",                              emit: log
+    path "${sample_id}_chopper.log",                               emit: log
 
     // ─────────────────────────────────────────────────────────────────────────
-    // LEÇON : Le script est du code shell classique.
-    // Les variables Nextflow (sample_id, params.xxx) s'utilisent avec ${}.
-    // On peut écrire du bash multi-lignes ici.
-    //
     // LEÇON : "set -euo pipefail" est une bonne pratique bash :
     //   -e  → arrête le script à la première erreur
     //   -u  → erreur si une variable non définie est utilisée
     //   -o pipefail → propage les erreurs à travers les pipes (|)
     //
-    // CORRECTION v2.1 (bug BLOQUANT) : la version précédente avait une
-    // syntaxe bash invalide. Elle tentait de chaîner un bloc if/else/fi
-    // avec un pipe `| NanoFilt ...` sur la ligne suivante :
-    //
-    //     if [[ ... ]]; then gunzip -c ...; else cat ...; fi
-    //     | NanoFilt ...    ← INVALIDE : un pipe ne peut pas démarrer une ligne
-    //
-    // Solution propre : on utilise une substitution de process bash `< <(...)`
-    // qui injecte le stdout du bloc if/else directement dans NanoFilt via stdin.
-    // Alternative plus lisible : décompresser d'abord dans un fichier
-    // intermédiaire, puis appliquer NanoFilt dessus (approche retenue ici
-    // car plus simple à déboguer et compatible avec tous les shells POSIX).
-    //
-    // CORRECTION v2.1 (robustesse) : on vérifie que le fichier de sortie
-    // n'est pas vide après filtrage. Sans cette vérification, si NanoFilt
-    // écarte 100% des reads, gzip produit un fichier valide mais vide qui
-    // ferait planter Flye en aval avec un message obscur.
+    // Le FASTQ (compressé ou non) est décompressé à la volée vers chopper,
+    // sans fichier intermédiaire sur le disque.
     // ─────────────────────────────────────────────────────────────────────────
     script:
+    def reader = fastq.name.endsWith('.gz') ? 'zcat' : 'cat'
     """
     set -euo pipefail
 
-    # Étape 1 : décompression conditionnelle vers un fichier temporaire
-    if [[ "${fastq}" == *.gz ]]; then
-        gunzip -c "${fastq}" > input_raw.fastq
-    else
-        cp "${fastq}" input_raw.fastq
-    fi
-
-    # Étape 2 : filtrage NanoFilt → gzip en sortie
-    NanoFilt \\
-        --quality ${params.min_quality} \\
-        --length ${params.min_length} \\
-        --logfile "${sample_id}_nanofilt.log" \\
-        < input_raw.fastq \\
+    # Filtrage : qualité moyenne ≥ min_quality et longueur ≥ min_length.
+    # chopper écrit son bilan (reads gardés / total) sur stderr → log.
+    ${reader} "${fastq}" \\
+        | chopper \\
+            --quality ${params.min_quality} \\
+            --minlength ${params.min_length} \\
+            --threads ${task.cpus} \\
+            2> "${sample_id}_chopper.log" \\
         | gzip > "${sample_id}_filtered.fastq.gz"
 
-    # Nettoyage du fichier temporaire
-    rm -f input_raw.fastq
+    cat "${sample_id}_chopper.log"
 
-    # Garantit l'existence du log même si NanoFilt ne l'a pas créé
-    touch "${sample_id}_nanofilt.log"
-
-    # Vérification que le fichier filtré n'est pas vide (0 read survivant)
-    # NOTE v2.2 : on désactive temporairement pipefail pour la vérification
+    # Vérification que le fichier filtré n'est pas vide (0 read survivant) :
+    # le pipeline s'arrête volontairement si une souche n'a aucun read.
+    # NOTE : on désactive temporairement pipefail pour la vérification
     # car `zcat | head -n 4` provoque un SIGPIPE sur zcat quand head ferme
     # le pipe après 4 lignes. Avec `set -o pipefail`, SIGPIPE fait échouer
     # la commande entière et déclenche `set -e` → process killé à tort.

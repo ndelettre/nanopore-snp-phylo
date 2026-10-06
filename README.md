@@ -11,13 +11,13 @@ Ce pipeline analyse des souches bactériennes séquencées sur MinION (R10.4.1, 
 ### Workflow
 
 ```
-NANOFILT → NANOSTAT ──────────────────────────────────────────────── MULTIQC
+CHOPPER  → NANOSTAT ──────────────────────────────────────────────── MULTIQC
          → KRAKEN2 → BRACKEN (identification taxonomique)                 ↑
          → FLYE → MEDAKA → QUALIMAP ────────────────────────────────────┤
                          → QUAST ────────────────────────────────────────┤
                          → MLST ─────────────────────────────────────────┤
                          → CHECKM2 ──────────────────────────────────────┤
-                         → KSNP4 → IQTREE → PHYLO_REPORT
+                         → KSNP4 → IQTREE ×2 → PHYLO_REPORT ×2 (tous les SNPs / SNPs core)
 ```
 
 ## Prérequis
@@ -102,7 +102,7 @@ Modèles Medaka disponibles :
 
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
-| `bootstrap` | Activer le bootstrap IQ-TREE (nécessite ≥4 souches) | `true` |
+| `bootstrap` | Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches) | `true` |
 
 ## Sorties
 
@@ -115,7 +115,7 @@ output/                          ← Rapports visibles dans EPI2ME
 └── pipeline_timeline.html       ← Chronologie d'exécution
 
 results/                         ← Fichiers intermédiaires
-├── nanofilt/                    ← Reads filtrés
+├── chopper/                     ← Reads filtrés
 ├── nanostat/                    ← Statistiques qualité des reads
 ├── kraken2/                     ← Rapports taxonomiques
 ├── bracken/                     ← Abondances réestimées au rang espèce
@@ -126,30 +126,32 @@ results/                         ← Fichiers intermédiaires
 ├── mlst/                        ← Typage MLST
 ├── checkm2/                     ← Complétude et contamination
 ├── ksnp4/                       ← Alignements SNP
-└── iqtree/                      ← Arbre phylogénétique
+└── iqtree/                      ← Arbres phylogénétiques (un par rapport)
 ```
 
 ### Rapport phylogénétique
 
 Chaque rapport HTML contient :
 - **Contrôle qualité** — tableau par souche avec statut OK/NOK selon :
-  - Couverture ≥95% du génome à ≥30X (Qualimap)
+  - Couverture ≥95% du génome à ≥30X (Qualimap, reads remappés sur l'assemblage poli)
   - Complétude ≥99% (CheckM2)
   - Contamination <1% (CheckM2)
 - **Identification taxonomique** — espèces >1% par barcode (Kraken2 + Bracken). Bracken réattribue à l'espèce les reads que Kraken2 laisse au rang genre ; il utilise la plus grande longueur de read disponible dans la base (300 pb pour les bases préconstruites)
 - **Typage MLST** — séquence type et allèles (schéma auto-détecté via PubMLST)
-- **Arbre phylogénétique** — ML enraciné au midpoint avec valeurs de bootstrap
-- **Matrice de distances SNP** — distances pairwise en nombre de SNPs
+- **Arbre phylogénétique** — ML enraciné au midpoint avec valeurs d'ultrafast bootstrap (fiable à partir de 95)
+- **Matrice de distances SNP** — distances pairwise en nombre de SNPs. Les statistiques (min / moyenne / max) portent sur les échantillons du run, sans la référence
 
-Deux rapports sont produits :
-- `report_all_snps.html` — basé sur tous les SNPs détectés par kSNP4
-- `report_core_snps.html` — basé sur les SNPs core (présents dans toutes les souches)
+Le rapport est autonome : il s'ouvre et s'affiche sans connexion internet.
+
+Deux rapports sont produits, chacun avec son propre arbre IQ-TREE :
+- `report_all_snps.html` — basé sur tous les SNPs détectés par kSNP4 (`SNPs_all_matrix.fasta`). Les positions manquantes sont ignorées paire par paire : c'est la référence pour les distances entre souches, notamment avec une souche de référence éloignée
+- `report_core_snps.html` — basé sur les SNPs core (présents dans toutes les souches). Plus conservateur, mais une souche éloignée réduit le génome commun et peut sous-estimer les distances entre les autres souches. Il n'est pas produit s'il n'y a aucun SNP core
 
 ## Logiciels utilisés
 
 | Outil | Version | Usage |
 |-------|---------|-------|
-| NanoFilt | 2.8.0 | Filtrage qualité des reads |
+| Chopper | 0.9.0 | Filtrage qualité des reads |
 | NanoStat | 1.6.0 | Statistiques des reads |
 | Kraken2 | 2.1.3 | Identification taxonomique |
 | Bracken | 3.1 | Réestimation des abondances au rang espèce |
@@ -166,7 +168,8 @@ Deux rapports sont produits :
 ## Notes
 
 - Une souche de référence déjà assemblée peut être ajoutée avec `--reference_fasta`. Elle apparaît dans l'arbre, la matrice SNP et le tableau MLST, avec « N/A » dans le tableau QC. Dans l'identification taxonomique, son espèce est affichée (Kraken2 sur ses contigs, espèce couvrant le plus de paires de bases) avec « N/A » dans les autres colonnes. Elle n'est pas comptée dans le nombre d'échantillons du rapport. Son nom ne doit pas être identique à celui d'un échantillon du run, et elle compte dans les seuils de 3 et 4 souches ci-dessous.
-- Le pipeline requiert **au minimum 3 souches** pour produire un arbre phylogénétique, et **au minimum 4** pour le bootstrap.
+- Le pipeline requiert **au minimum 3 souches** pour produire un arbre phylogénétique, et **au minimum 4** pour le bootstrap (désactivé automatiquement en dessous).
+- Le pipeline s'arrête si une souche n'a plus aucun read après filtrage.
 - Le modèle Medaka doit correspondre à la flowcell et au mode de basecalling utilisés dans MinKNOW lors du séquençage.
 - Les bases de données Kraken2 et CheckM2 sont stockées en dehors du pipeline et réutilisées entre les runs.
 - Les assemblages NOK dans le rapport QC ne sont pas exclus automatiquement de la phylogénie — ils sont signalés pour information.

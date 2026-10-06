@@ -17,9 +17,7 @@
                                            nommés "qualimapReport.html")
 
     Outil  : Qualimap bamqc
-    Usage  : Commun aux deux modes
-             Mode de novo    → consomme le BAM de MEDAKA
-             Mode référence  → consomme le BAM de MINIMAP2
+    Entrée : BAM des reads remappés sur l'assemblage poli (MEDAKA)
 ========================================================================================
 */
 process QUALIMAP {
@@ -28,8 +26,7 @@ process QUALIMAP {
     publishDir "${params.resultsdir}/qualimap", mode: 'copy'
 
     input:
-    // BAM trié + index : produit par MEDAKA (mode de novo)
-    //                    ou MINIMAP2 (mode référence)
+    // BAM trié + index : reads remappés sur l'assemblage poli (MEDAKA)
     tuple val(sample_id), path(bam), path(bai)
 
     output:
