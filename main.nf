@@ -30,7 +30,7 @@ params.min_quality  = 10            // Qualité minimale des reads Q-score (Chop
 params.genome_size  = "5m"          // Taille estimée du génome pour Flye (ex: 5m = 5 Mb)
 params.medaka_model = "r1041_e82_400bps_bacterial_methylation"
                                     // Modèle Medaka : r1041 = R10.4.1 | e82 = Kit 14 | sup = SUP
-params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
+params.bootstrap    = false         // Active le calcul des valeurs de bootstrap IQ-TREE (--bootstrap)
 params.kraken_db    = "/data/kraken2_db"
                                     // Base de données Kraken2 (PlusPF-16 recommandée)
 params.checkm2_db   = "/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd"

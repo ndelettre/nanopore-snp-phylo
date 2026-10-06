@@ -98,7 +98,7 @@
                 "bootstrap": {
                     "type": "boolean",
                     "description": "Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches).",
-                    "default": true,
+                    "default": false,
                     "fa_icon": "fas fa-tree"
                 }
             }

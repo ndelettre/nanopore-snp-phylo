@@ -102,7 +102,7 @@ Modèles Medaka disponibles :
 
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
-| `bootstrap` | Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches) | `true` |
+| `bootstrap` | Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches) | `false` |
 
 ## Sorties
 
@@ -138,7 +138,7 @@ Chaque rapport HTML contient :
   - Contamination <1% (CheckM2)
 - **Identification taxonomique** — espèces >1% par barcode (Kraken2 + Bracken). Bracken réattribue à l'espèce les reads que Kraken2 laisse au rang genre ; il utilise la plus grande longueur de read disponible dans la base (300 pb pour les bases préconstruites)
 - **Typage MLST** — séquence type et allèles (schéma auto-détecté via PubMLST)
-- **Arbre phylogénétique** — ML enraciné au midpoint avec valeurs d'ultrafast bootstrap (fiable à partir de 95)
+- **Arbre phylogénétique** — ML enraciné au midpoint, avec valeurs d'ultrafast bootstrap si `--bootstrap` est activé (fiables à partir de 95)
 - **Matrice de distances SNP** — distances pairwise en nombre de SNPs. Les statistiques (min / moyenne / max) portent sur les échantillons du run, sans la référence
 
 Le rapport est autonome : il s'ouvre et s'affiche sans connexion internet.
