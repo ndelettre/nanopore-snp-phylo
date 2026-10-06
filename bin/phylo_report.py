@@ -496,7 +496,7 @@ def build_qc_table(samples, qualimap_data, checkm2_data, n_samples):
     <table>
         <thead>
             <tr>
-                <th>Barcode</th>
+                <th>Souche</th>
                 <th>Couverture ≥30X</th>
                 <th>Complétude</th>
                 <th>Contamination</th>
@@ -572,7 +572,7 @@ def build_kraken_table(samples, kraken_data, reference_name=None, reference_spec
     <table>
         <thead>
             <tr>
-                <th>Barcode</th>
+                <th>Souche</th>
                 <th>Espèce dominante</th>
                 <th>%</th>
                 <th>Autres espèces &gt;1%</th>
@@ -634,7 +634,7 @@ def build_mlst_table(samples, mlst_data):
     <table>
         <thead>
             <tr>
-                <th>Barcode</th>
+                <th>Souche</th>
                 <th>Schéma</th>
                 <th>ST</th>
                 {loci_headers}

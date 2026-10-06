@@ -56,10 +56,17 @@ include { PHYLO_REPORT } from './modules/phylo_report.nf' // Rapport HTML intera
 include { MULTIQC }      from './modules/multiqc.nf'      // Rapport QC agrégé
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BANNIÈRE DE DÉMARRAGE
-// Affiche les paramètres utilisés pour traçabilité dans les logs.
+// WORKFLOW PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
-log.info """
+workflow {
+
+    // LEÇON : en syntaxe stricte (Nextflow ≥ 25), aucune instruction ne doit
+    // se trouver hors d'un bloc workflow ou process. La bannière, la
+    // validation des paramètres et le résumé de fin sont donc ici.
+
+    // ── Bannière de démarrage ─────────────────────────────────────────────────
+    // Affiche les paramètres utilisés pour traçabilité dans les logs.
+    log.info """
 ╔══════════════════════════════════════════════════════════╗
 ║     PIPELINE SNP & PHYLOGÉNIE - NANOPORE MINION  v1.1.0  ║
 ╚══════════════════════════════════════════════════════════╝
@@ -76,24 +83,38 @@ log.info """
 ──────────────────────────────────────────────────────────
 """.stripIndent()
 
-// ─────────────────────────────────────────────────────────────────────────────
-// VALIDATION DES PARAMÈTRES OBLIGATOIRES
-// On arrête le pipeline proprement si un paramètre requis est absent.
-// ─────────────────────────────────────────────────────────────────────────────
-if (!params.fastq_dir) {
-    error "ERREUR : --fastq_dir est obligatoire.\nUsage : nextflow run main.nf --fastq_dir /chemin/vers/fastq"
-}
-if (!params.kraken_db) {
-    error "ERREUR : --kraken_db est obligatoire.\nUsage : nextflow run main.nf --kraken_db /chemin/vers/db"
-}
-if (!params.checkm2_db) {
-    error "ERREUR : --checkm2_db est obligatoire.\nUsage : nextflow run main.nf --checkm2_db /chemin/vers/uniref100.KO.1.dmnd"
-}
+    // ── Validation des paramètres obligatoires ────────────────────────────────
+    // On arrête le pipeline proprement si un paramètre requis est absent.
+    if (!params.fastq_dir) {
+        error "ERREUR : --fastq_dir est obligatoire.\nUsage : nextflow run main.nf --fastq_dir /chemin/vers/fastq"
+    }
+    if (!params.kraken_db) {
+        error "ERREUR : --kraken_db est obligatoire.\nUsage : nextflow run main.nf --kraken_db /chemin/vers/db"
+    }
+    if (!params.checkm2_db) {
+        error "ERREUR : --checkm2_db est obligatoire.\nUsage : nextflow run main.nf --checkm2_db /chemin/vers/uniref100.KO.1.dmnd"
+    }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// WORKFLOW PRINCIPAL
-// ─────────────────────────────────────────────────────────────────────────────
-workflow {
+    // ── Résumé de fin de pipeline ─────────────────────────────────────────────
+    // S'exécute automatiquement à la fin, succès ou échec.
+    // LEÇON : dans le bloc workflow, `workflow` et `params` ne sont plus
+    // visibles depuis la closure du handler → on les garde dans des
+    // variables locales, que la closure capture.
+    def run_info   = workflow
+    def outdir     = params.outdir
+    def resultsdir = params.resultsdir
+    workflow.onComplete {
+        log.info """
+╔══════════════════════════════════════════════════════════╗
+║                  PIPELINE TERMINÉ !                      ║
+╚══════════════════════════════════════════════════════════╝
+  Statut    : ${run_info.success ? '✅ Succès' : '❌ Échec'}
+  Durée     : ${run_info.duration}
+  Rapports  : ${outdir}/
+  Résultats : ${resultsdir}/
+──────────────────────────────────────────────────────────
+""".stripIndent()
+    }
 
     // ── Création du channel d'entrée ──────────────────────────────────────────
     // LEÇON : fromPath() crée un channel à partir de fichiers sur le disque.
@@ -261,21 +282,4 @@ workflow {
         .collect()
 
     MULTIQC(ch_multiqc_files)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// RÉSUMÉ DE FIN DE PIPELINE
-// S'exécute automatiquement à la fin, succès ou échec.
-// ─────────────────────────────────────────────────────────────────────────────
-workflow.onComplete {
-    log.info """
-╔══════════════════════════════════════════════════════════╗
-║                  PIPELINE TERMINÉ !                      ║
-╚══════════════════════════════════════════════════════════╝
-  Statut    : ${workflow.success ? '✅ Succès' : '❌ Échec'}
-  Durée     : ${workflow.duration}
-  Rapports  : ${params.outdir}/
-  Résultats : ${params.resultsdir}/
-──────────────────────────────────────────────────────────
-""".stripIndent()
 }
