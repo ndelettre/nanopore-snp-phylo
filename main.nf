@@ -186,7 +186,7 @@ workflow {
     MEDAKA(ch_medaka_input)
 
     // ── Contrôle qualité des assemblages ──────────────────────────────────────
-    // Trois outils complémentaires lancés en parallèle sur les assemblages :
+    // Quatre outils complémentaires lancés en parallèle sur les assemblages :
     //   - Qualimap : qualité du mapping BAM (couverture, profondeur)
     //   - QUAST    : qualité structurelle (N50, nb contigs, taille)
     //   - MLST     : typage séquence type (schéma PubMLST auto-détecté)

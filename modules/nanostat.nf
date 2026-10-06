@@ -34,7 +34,7 @@ process NANOSTAT {
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : task.cpus est une variable Nextflow automatique.
     // Elle prend la valeur du label associé au process dans nextflow.config.
-    // Ici process_low → cpus = 2. C'est plus fiable qu'un params.threads
+    // Ici process_mono → cpus = 1. C'est plus fiable qu'un params.threads
     // global qui peut diverger des ressources réellement allouées.
     // ─────────────────────────────────────────────────────────────────────────
     """

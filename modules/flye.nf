@@ -7,7 +7,7 @@
 process FLYE {
 
     tag "${sample_id}"
-    label 'process_medium'   // Flye est gourmand en CPU/RAM → label 'high'
+    label 'process_medium'   // Flye est gourmand en CPU/RAM
 
     publishDir "${params.resultsdir}/flye/${sample_id}", mode: 'copy'
 
@@ -32,8 +32,8 @@ process FLYE {
     // LEÇON : On sépare l'exécution de Flye de la redirection du log
     // ("> log 2>&1" au lieu de "| tee log") pour la même raison.
     //
-    // LEÇON : task.cpus reflète automatiquement le label 'process_high'
-    // défini dans nextflow.config (cpus = 12 dans notre config).
+    // LEÇON : task.cpus reflète automatiquement le label 'process_medium'
+    // défini dans nextflow.config (cpus = 8 dans notre config).
     //
     // LEÇON : --nano-hq est pour les données récentes (R10.x, Dorado sup).
     //         Utilise --nano-raw pour les anciennes données R9.x.

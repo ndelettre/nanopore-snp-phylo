@@ -11,7 +11,9 @@
 
 process IQTREE {
     tag "${report_name}"
-    label 'process_high'
+    // process_medium : sur un alignement de SNPs, IQ-TREE gagne peu au-delà
+    // de quelques threads ; les deux arbres tournent ainsi en parallèle.
+    label 'process_medium'
     publishDir "${params.resultsdir}/iqtree", mode: 'copy'
 
     input:
