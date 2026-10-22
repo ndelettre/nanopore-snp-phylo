@@ -57,6 +57,12 @@ process KSNP4 {
     """
     set -euo pipefail
 
+    # kSNP4 place son cache dans \$HOME/kSNP. Sous Docker lancé avec notre
+    # identifiant (-u), HOME vaut "/" et ce dossier n'est pas inscriptible :
+    # on pointe HOME vers le dossier de travail de la tâche (cache temporaire,
+    # inutile ici puisque le pipeline n'utilise pas l'annotation NCBI).
+    export HOME="\$PWD"
+
     # ─────────────────────────────────────────────────────────────────────────
     # kSNP4 requiert un fichier "in_list" au format :
     #   /chemin/absolu/vers/genome.fasta<TAB>NomEchantillon
