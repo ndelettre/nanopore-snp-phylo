@@ -31,7 +31,7 @@ params.medaka_model = "r1041_e82_400bps_bacterial_methylation"
 params.bootstrap    = true          // Active le calcul des valeurs de bootstrap IQ-TREE
 params.kraken_db    = "/data/databases/kraken2/kraken2_db"
                                     // Base de données Kraken2 (PlusPF-8 recommandée)
-params.checkm2_db   = "/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd"
+params.checkm2_db   = "/data/databases/CheckM2_database/uniref100.KO.1.dmnd"
                                     // Base de données CheckM2 (fichier .dmnd)
 params.reference_fasta = null       // Optionnel : assemblage de référence (FASTA non compressé)
 
