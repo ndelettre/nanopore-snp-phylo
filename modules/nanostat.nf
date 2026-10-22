@@ -5,7 +5,7 @@
     NanoStat génère un rapport de qualité détaillé sur les reads Nanopore
     (longueur, qualité, N50, total bases...).
 
-    NOTE v2.2 : MultiQC n'a PAS de module natif pour NanoStat. Les fichiers
+    NOTE : MultiQC n'a PAS de module natif pour NanoStat. Les fichiers
     seront affichés via le mécanisme "custom content" de MultiQC mais sans
     graphes interactifs dédiés. Pour des graphes natifs, envisager NanoPlot
     ou pycoQC comme alternatives.

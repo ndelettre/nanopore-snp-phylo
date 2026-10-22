@@ -31,15 +31,16 @@ CHOPPER  → NANOSTAT ───────────────────�
 
 ```bash
 # Kraken2 PlusPF-16 (version du 26/06/2026 ; nécessite 20 GB de RAM par tâche Kraken2)
-mkdir -p /data/kraken2_db
-cd /data/kraken2_db
+mkdir -p /data/databases/kraken2/kraken2_db
+cd /data/databases/kraken2/kraken2_db
 wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_16_GB_20260626.tar.gz
 tar -xzf k2_pluspf_16_GB_20260626.tar.gz
 rm k2_pluspf_16_GB_20260626.tar.gz
 
 # CheckM2
-mkdir -p /data/checkm2_db
-docker run --rm -v /data/checkm2_db:/data staphb/checkm2:1.0.2 \
+# (crée /data/databases/CheckM2_database/uniref100.KO.1.dmnd)
+mkdir -p /data/databases
+docker run --rm -v /data/databases:/data staphb/checkm2:1.0.2 \
     checkm2 database --download --path /data
 ```
 
@@ -56,8 +57,8 @@ docker run --rm -v /data/checkm2_db:/data staphb/checkm2:1.0.2 \
 ```bash
 nextflow run ndelettre/nanopore-snp-phylo \
     --fastq_dir /chemin/vers/fastq \
-    --kraken_db /data/kraken2_db \
-    --checkm2_db /data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd \
+    --kraken_db /data/databases/kraken2/kraken2_db \
+    --checkm2_db /data/databases/CheckM2_database/uniref100.KO.1.dmnd \
     --outdir output
 ```
 
@@ -68,8 +69,8 @@ nextflow run ndelettre/nanopore-snp-phylo \
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
 | `fastq_dir` | Dossier contenant les FASTQ (un fichier par barcode) | **obligatoire** |
-| `kraken_db` | Dossier de la base Kraken2 | `/data/kraken2_db` |
-| `checkm2_db` | Chemin vers le fichier `uniref100.KO.1.dmnd` | `/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd` |
+| `kraken_db` | Dossier de la base Kraken2 | `/data/databases/kraken2/kraken2_db` |
+| `checkm2_db` | Chemin vers le fichier `uniref100.KO.1.dmnd` | `/data/databases/CheckM2_database/uniref100.KO.1.dmnd` |
 | `outdir` | Dossier de sortie des rapports HTML | `output` |
 | `resultsdir` | Dossier de sortie des fichiers intermédiaires | `results` |
 | `reference_fasta` | Optionnel : assemblage de référence (FASTA non compressé) ajouté au MLST et à kSNP4. Le nom du fichier jusqu'au premier point devient le nom de la souche | — |
@@ -78,7 +79,7 @@ nextflow run ndelettre/nanopore-snp-phylo \
 
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
-| `min_length` | Longueur minimale des reads (bp) | `200` |
+| `min_length` | Longueur minimale des reads (bp) | `1000` |
 | `min_quality` | Score de qualité minimum (Phred) | `10` |
 
 ### Assemblage et polissage
@@ -86,12 +87,13 @@ nextflow run ndelettre/nanopore-snp-phylo \
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
 | `genome_size` | Taille estimée du génome pour Flye | `5m` |
-| `medaka_model` | Modèle Medaka selon la flowcell et le basecalling | `r1041_e82_400bps_sup_v5.2.0` |
+| `medaka_model` | Modèle Medaka selon la flowcell et le basecalling | `r1041_e82_400bps_bacterial_methylation` |
 
 Modèles Medaka disponibles :
 
 | Flowcell | Kit | Mode | Modèle |
 |----------|-----|------|--------|
+| R10.4.1 | Kit 14 | ADN bactérien natif (méthylation) | `r1041_e82_400bps_bacterial_methylation` |
 | R10.4.1 | Kit 14 | SUP | `r1041_e82_400bps_sup_v5.2.0` |
 | R10.4.1 | Kit 14 | SUP | `r1041_e82_400bps_sup_v5.0.0` |
 | R10.4.1 | Kit 14 | HAC | `r1041_e82_400bps_hac_v5.2.0` |
