@@ -17,19 +17,15 @@
                                            nommés "qualimapReport.html")
 
     Outil  : Qualimap bamqc
-    Usage  : Commun aux deux modes
-             Mode de novo    → consomme le BAM de MEDAKA
-             Mode référence  → consomme le BAM de MINIMAP2
+    Entrée : BAM des reads remappés sur l'assemblage poli (MEDAKA)
 ========================================================================================
 */
 process QUALIMAP {
     tag "${sample_id}"
-    label 'process_low'
     publishDir "${params.resultsdir}/qualimap", mode: 'copy'
 
     input:
-    // BAM trié + index : produit par MEDAKA (mode de novo)
-    //                    ou MINIMAP2 (mode référence)
+    // BAM trié + index : reads remappés sur l'assemblage poli (MEDAKA)
     tuple val(sample_id), path(bam), path(bai)
 
     output:
@@ -39,6 +35,10 @@ process QUALIMAP {
     path "${sample_id}_qualimapReport.html", emit: html
 
     script:
+    // Java reçoit 75% de la mémoire de la tâche : la JVM consomme aussi de la
+    // mémoire hors de sa limite (-Xmx), et Docker tue la tâche si l'ensemble
+    // dépasse task.memory.
+    def java_mem = (task.memory.toMega() * 0.75) as long
     """
     set -euo pipefail
 
@@ -46,7 +46,7 @@ process QUALIMAP {
         -bam ${bam} \\
         -outdir ${sample_id}_qualimap \\
         -outformat HTML \\
-        --java-mem-size=${task.memory.toGiga()}G \\
+        --java-mem-size=${java_mem}M \\
         -nt ${task.cpus}
 
     # Copie du rapport HTML avec le sample_id dans le nom

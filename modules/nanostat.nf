@@ -5,7 +5,7 @@
     NanoStat génère un rapport de qualité détaillé sur les reads Nanopore
     (longueur, qualité, N50, total bases...).
 
-    NOTE v2.2 : MultiQC n'a PAS de module natif pour NanoStat. Les fichiers
+    NOTE : MultiQC n'a PAS de module natif pour NanoStat. Les fichiers
     seront affichés via le mécanisme "custom content" de MultiQC mais sans
     graphes interactifs dédiés. Pour des graphes natifs, envisager NanoPlot
     ou pycoQC comme alternatives.
@@ -18,7 +18,6 @@
 process NANOSTAT {
 
     tag "${sample_id}"
-    label 'process_mono'
 
     publishDir "${params.resultsdir}/nanostat/${sample_id}", mode: 'copy'
 
@@ -33,8 +32,8 @@ process NANOSTAT {
     script:
     // ─────────────────────────────────────────────────────────────────────────
     // LEÇON : task.cpus est une variable Nextflow automatique.
-    // Elle prend la valeur du label associé au process dans nextflow.config.
-    // Ici process_low → cpus = 2. C'est plus fiable qu'un params.threads
+    // Elle prend la valeur `cpus` du bloc withName du process dans
+    // nextflow.config (ici 1). C'est plus fiable qu'un params.threads
     // global qui peut diverger des ressources réellement allouées.
     // ─────────────────────────────────────────────────────────────────────────
     """

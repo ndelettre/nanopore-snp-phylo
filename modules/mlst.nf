@@ -17,7 +17,6 @@
 */
 process MLST {
     tag "${sample_id}"
-    label 'process_low'
     publishDir "${params.resultsdir}/mlst", mode: 'copy'
 
     input:

@@ -21,7 +21,7 @@
                 "kraken_db": {
                     "type": "string",
                     "format": "directory-path",
-                    "description": "Dossier contenant la base de données Kraken2 (PlusPF-8 recommandée).",
+                    "description": "Dossier contenant la base de données Kraken2 (PlusPF-16 recommandée, 20 GB de RAM).",
                     "fa_icon": "fas fa-database"
                 },
                 "checkm2_db": {
@@ -42,7 +42,7 @@
             "title": "Filtrage des reads",
             "type": "object",
             "fa_icon": "fas fa-filter",
-            "description": "Paramètres de filtrage NanoFilt.",
+            "description": "Paramètres de filtrage Chopper.",
             "properties": {
                 "min_length": {
                     "type": "integer",
@@ -97,8 +97,8 @@
             "properties": {
                 "bootstrap": {
                     "type": "boolean",
-                    "description": "Activer le bootstrap IQ-TREE (nécessite ≥4 souches).",
-                    "default": true,
+                    "description": "Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches).",
+                    "default": false,
                     "fa_icon": "fas fa-tree"
                 }
             }

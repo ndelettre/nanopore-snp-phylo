@@ -5,7 +5,7 @@ phylo_report.py
 Génère un rapport HTML interactif contenant :
   - Header avec logo HPSJ, titre, date
   - Tableau de contrôle qualité (couverture Qualimap + CheckM2)
-  - Tableau d'identification taxonomique (Kraken2)
+  - Tableau d'identification taxonomique (Kraken2 + Bracken)
   - Tableau MLST
   - Arbre phylogénétique IQ-TREE enraciné au midpoint
   - Matrice de distances SNP pairwise
@@ -17,10 +17,11 @@ Usage :
         --tree   phylo_tree.treefile \
         --output report.html \
         --title  "Rapport SNP — HPSJ" \
-        --kraken_dir  /path/to/kraken2/reports \
+        --kraken_dir  /path/to/bracken/reports \
         --mlst_dir    /path/to/mlst/reports \
         --qualimap_dir /path/to/qualimap/reports \
-        --checkm2_dir  /path/to/checkm2/reports
+        --checkm2_dir  /path/to/checkm2/reports \
+        --reference_name NOM_REFERENCE
 
 Dépendances : biopython, plotly, pandas, numpy
 """
@@ -164,8 +165,8 @@ def build_tree_traces(tree, nodes, bootstrap=True):
                 bs_y.append(y)
                 bs_text.append(str(int(val)))
                 bs_colors.append(
-                    "#27ae60" if val >= 90 else
-                    "#f39c12" if val >= 70 else
+                    "#27ae60" if val >= 95 else
+                    "#f39c12" if val >= 80 else
                     "#e74c3c"
                 )
         if bs_x:
@@ -176,7 +177,7 @@ def build_tree_traces(tree, nodes, bootstrap=True):
                 textposition="top center",
                 textfont=dict(size=9),
                 marker=dict(size=6, color=bs_colors, symbol="square"),
-                hovertemplate="Bootstrap : %{text}<extra></extra>",
+                hovertemplate="UFBoot : %{text}<extra></extra>",
                 showlegend=False
             ))
     return traces
@@ -228,33 +229,95 @@ def build_heatmap_trace(matrix):
 # 5. PARSERS DES FICHIERS QC
 # ─────────────────────────────────────────────────────────────────────────────
 
-def parse_kraken_reports(kraken_dir):
+def parse_bracken_reports(kraken_dir):
     """
-    Lit les rapports Kraken2 (*.kraken2.report) et retourne un dict :
+    Lit les abondances Bracken (*.bracken.tsv) et retourne un dict :
     { sample_id: [(espece, pct), ...] }  — espèces >1% seulement
+    Le pourcentage est la part des reads réattribués au rang espèce.
     """
     results = {}
     if not kraken_dir or not os.path.isdir(kraken_dir):
         return results
 
-    for report_file in glob.glob(os.path.join(kraken_dir, "*.kraken2.report")):
-        sample_id = os.path.basename(report_file).replace(".kraken2.report", "")
+    for tsv_file in glob.glob(os.path.join(kraken_dir, "*.bracken.tsv")):
+        sample_id = os.path.basename(tsv_file).replace(".bracken.tsv", "")
         species_list = []
-        with open(report_file) as f:
+        with open(tsv_file) as f:
+            header = f.readline().strip().split("\t")
             for line in f:
-                parts = line.strip().split("\t")
-                if len(parts) < 6:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < len(header):
                     continue
-                pct   = float(parts[0].strip())
-                rank  = parts[3].strip()
-                name  = parts[5].strip()
-                # Garder uniquement le rang espèce (S) avec >1%
-                if rank == "S" and pct > 1.0:
-                    species_list.append((name, pct))
+                row = dict(zip(header, parts))
+                try:
+                    pct = float(row["fraction_total_reads"]) * 100
+                except (KeyError, ValueError):
+                    continue
+                if pct > 1.0:
+                    species_list.append((row["name"].strip(), pct))
         # Trier par pourcentage décroissant
         species_list.sort(key=lambda x: -x[1])
         results[sample_id] = species_list
     return results
+
+
+def parse_reference_species(kraken_dir, reference_name):
+    """
+    Espèce de la souche de référence à partir de la classification Kraken2
+    de ses contigs (<ref>.ref_kraken2.report + <ref>.ref_kraken2.out).
+    Chaque contig compte pour sa longueur : l'espèce retenue est celle qui
+    couvre le plus de paires de bases. Retourne None si non classée.
+    """
+    if not reference_name or not kraken_dir:
+        return None
+    report = os.path.join(kraken_dir, f"{reference_name}.ref_kraken2.report")
+    output = os.path.join(kraken_dir, f"{reference_name}.ref_kraken2.out")
+    if not (os.path.isfile(report) and os.path.isfile(output)):
+        return None
+
+    # Hiérarchie du rapport : l'indentation du nom (2 espaces par niveau)
+    # donne la profondeur, une pile donne le parent de chaque taxon.
+    taxa  = {}   # taxid -> (rang, nom, taxid_parent)
+    stack = []   # [(profondeur, taxid)]
+    with open(report) as f:
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 6:
+                continue
+            rank, taxid, raw_name = parts[3].strip(), parts[4].strip(), parts[5]
+            depth = (len(raw_name) - len(raw_name.lstrip(" "))) // 2
+            while stack and stack[-1][0] >= depth:
+                stack.pop()
+            parent = stack[-1][1] if stack else None
+            taxa[taxid] = (rank, raw_name.strip(), parent)
+            stack.append((depth, taxid))
+
+    def species_of(taxid):
+        # Remonte jusqu'au rang espèce (S) ; None si le taxon est au-dessus
+        while taxid in taxa:
+            rank, name, parent = taxa[taxid]
+            if rank == "S":
+                return name
+            taxid = parent
+        return None
+
+    # Sortie par séquence : C/U  id  taxid  longueur  k-mers
+    bp_by_name = {}
+    with open(output) as f:
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 4 or parts[0] != "C":
+                continue
+            taxid = parts[2].strip()
+            name  = species_of(taxid) or taxa.get(taxid, (None, None, None))[1]
+            if not name:
+                continue
+            length = sum(int(x) for x in parts[3].split("|") if x.isdigit())
+            bp_by_name[name] = bp_by_name.get(name, 0) + length
+
+    if not bp_by_name:
+        return None
+    return max(bp_by_name, key=bp_by_name.get)
 
 
 def parse_mlst_reports(mlst_dir):
@@ -355,8 +418,9 @@ def parse_checkm2_reports(checkm2_dir):
 # 6. GÉNÉRATION DES TABLEAUX HTML
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_qc_table(samples, qualimap_data, checkm2_data):
-    """Tableau contrôle qualité avec OK/NOK."""
+def build_qc_table(samples, qualimap_data, checkm2_data, n_samples):
+    """Tableau contrôle qualité avec OK/NOK.
+    n_samples : nombre de souches analysées, sans la référence."""
     # Seuils
     COVERAGE_THR    = 95.0   # % génome couvert à >=30X
     COMPLETENESS_THR = 99.0  # % complétude CheckM2
@@ -415,7 +479,7 @@ def build_qc_table(samples, qualimap_data, checkm2_data):
     <div class="qc-summary">
         <div class="qc-summary-card">
             <div class="qs-label">Souches analysées</div>
-            <div class="qs-value total">{len(samples)}</div>
+            <div class="qs-value total">{n_samples}</div>
         </div>
         <div class="qc-summary-card">
             <div class="qs-label">Conformes</div>
@@ -432,7 +496,7 @@ def build_qc_table(samples, qualimap_data, checkm2_data):
     <table>
         <thead>
             <tr>
-                <th>Barcode</th>
+                <th>Souche</th>
                 <th>Couverture ≥30X</th>
                 <th>Complétude</th>
                 <th>Contamination</th>
@@ -448,10 +512,27 @@ def build_qc_table(samples, qualimap_data, checkm2_data):
     return table
 
 
-def build_kraken_table(samples, kraken_data):
-    """Tableau identification taxonomique Kraken2."""
+def build_kraken_table(samples, kraken_data, reference_name=None, reference_species=None):
+    """Tableau identification taxonomique Kraken2 + Bracken.
+    La référence n'a pas de reads : on affiche son espèce, puis N/A."""
     rows = []
     for s in samples:
+        if reference_name and s == reference_name:
+            ref_name = (
+                f'<span class="species-name">{reference_species}</span>'
+                if reference_species else
+                '<span style="color:#95a5a6;">N/A</span>'
+            )
+            rows.append(f"""
+        <tr>
+            <td><strong>{s}</strong></td>
+            <td>{ref_name}</td>
+            <td>N/A</td>
+            <td>N/A</td>
+            <td>N/A</td>
+        </tr>""")
+            continue
+
         species_list = kraken_data.get(s, [])
         if not species_list:
             rows.append(f"""
@@ -491,7 +572,7 @@ def build_kraken_table(samples, kraken_data):
     <table>
         <thead>
             <tr>
-                <th>Barcode</th>
+                <th>Souche</th>
                 <th>Espèce dominante</th>
                 <th>%</th>
                 <th>Autres espèces &gt;1%</th>
@@ -501,7 +582,8 @@ def build_kraken_table(samples, kraken_data):
         <tbody>
             {"".join(rows)}
         </tbody>
-    </table>"""
+    </table>
+    <p class="note">Pourcentages Bracken : part des reads attribués au rang espèce après redistribution des reads restés au rang genre par Kraken2.</p>"""
 
 
 def build_mlst_table(samples, mlst_data):
@@ -552,7 +634,7 @@ def build_mlst_table(samples, mlst_data):
     <table>
         <thead>
             <tr>
-                <th>Barcode</th>
+                <th>Souche</th>
                 <th>Schéma</th>
                 <th>ST</th>
                 {loci_headers}
@@ -570,13 +652,18 @@ def build_mlst_table(samples, mlst_data):
 
 def build_report(fasta_path, tree_path, output_path, title,
                  kraken_dir, mlst_dir, qualimap_dir, checkm2_dir,
-                 software_versions):
+                 software_versions, reference_name=None, pipeline_version=""):
 
     print(f"[1/8] Lecture du FASTA : {fasta_path}")
     sequences = read_fasta(fasta_path)
-    n_samples = len(sequences)
     samples   = list(sequences.keys())
-    print(f"      {n_samples} séquences lues")
+    # La souche de référence n'est pas un échantillon du run : exclue du compte
+    if reference_name and reference_name not in samples:
+        print(f"      ATTENTION : référence '{reference_name}' absente du FASTA")
+        reference_name = None
+    n_samples = len([s for s in samples if s != reference_name])
+    print(f"      {len(samples)} séquences lues ({n_samples} échantillons"
+          f"{' + référence ' + reference_name if reference_name else ''})")
 
     print(f"[2/8] Calcul des distances SNP pairwise...")
     matrix_raw = compute_snp_distances(sequences)
@@ -592,22 +679,21 @@ def build_report(fasta_path, tree_path, output_path, title,
     matrix = reorder_matrix(matrix_raw, leaves)
 
     print(f"[6/8] Lecture des données QC...")
-    kraken_data   = parse_kraken_reports(kraken_dir)
+    kraken_data   = parse_bracken_reports(kraken_dir)
+    reference_species = parse_reference_species(kraken_dir, reference_name)
     mlst_data     = parse_mlst_reports(mlst_dir)
     qualimap_data = parse_qualimap_reports(qualimap_dir)
     checkm2_data  = parse_checkm2_reports(checkm2_dir)
 
-    # Statistiques distances
-    dist_vals = matrix.values[np.triu_indices(len(matrix), k=1)]
+    # Statistiques distances : entre échantillons du run uniquement.
+    # La référence reste dans l'arbre et la heatmap, mais une souche éloignée
+    # fixerait la distance maximale et tirerait la moyenne vers le haut.
+    study    = [s for s in matrix.index if s != reference_name]
+    stat_mat = matrix.loc[study, study]
+    dist_vals = stat_mat.values[np.triu_indices(len(stat_mat), k=1)]
     dist_min  = int(dist_vals.min())  if len(dist_vals) else 0
     dist_max  = int(dist_vals.max())  if len(dist_vals) else 0
     dist_mean = f"{dist_vals.mean():.1f}" if len(dist_vals) else "N/A"
-
-    flat     = matrix.where(np.triu(np.ones(matrix.shape, dtype=bool), k=1))
-    pair_min = flat.stack().idxmin() if len(dist_vals) else ("—", "—")
-    pair_max = flat.stack().idxmax() if len(dist_vals) else ("—", "—")
-    pair_min_str = f"{pair_min[0]} / {pair_min[1]} ({dist_min} SNPs)"
-    pair_max_str = f"{pair_max[0]} / {pair_max[1]} ({dist_max} SNPs)"
 
     print(f"[7/8] Génération des figures Plotly...")
 
@@ -631,9 +717,9 @@ def build_report(fasta_path, tree_path, output_path, title,
     )
     if bootstrap_present:
         fig_tree.add_annotation(
-            text="Bootstrap : <span style='color:#27ae60'>■</span> ≥90  "
-                 "<span style='color:#f39c12'>■</span> ≥70  "
-                 "<span style='color:#e74c3c'>■</span> <70",
+            text="UFBoot : <span style='color:#27ae60'>■</span> ≥95  "
+                 "<span style='color:#f39c12'>■</span> ≥80  "
+                 "<span style='color:#e74c3c'>■</span> <80",
             xref="paper", yref="paper", x=0.01, y=0.01,
             showarrow=False, font=dict(size=10),
             bgcolor="rgba(255,255,255,0.85)",
@@ -654,12 +740,13 @@ def build_report(fasta_path, tree_path, output_path, title,
         margin=dict(l=110, r=80, t=60, b=130)
     )
 
-    tree_html    = fig_tree.to_html(full_html=False, include_plotlyjs="cdn", div_id="tree_div")
+    # Plotly embarqué dans le HTML (~3 Mo) : le rapport s'affiche sans internet
+    tree_html    = fig_tree.to_html(full_html=False, include_plotlyjs=True, div_id="tree_div")
     heatmap_html = fig_heatmap.to_html(full_html=False, include_plotlyjs=False, div_id="heatmap_div")
 
     # Tableaux QC
-    qc_table     = build_qc_table(samples, qualimap_data, checkm2_data)
-    kraken_table = build_kraken_table(samples, kraken_data)
+    qc_table     = build_qc_table(samples, qualimap_data, checkm2_data, n_samples)
+    kraken_table = build_kraken_table(samples, kraken_data, reference_name, reference_species)
     mlst_table   = build_mlst_table(samples, mlst_data)
 
     # Footer logiciels
@@ -852,12 +939,12 @@ def build_report(fasta_path, tree_path, output_path, title,
         <div class="divider"></div>
         <div class="header-title">
             <h1>{title}</h1>
-            <p>Analyse phylogénétique · {n_samples} souches</p>
+            <p>Analyse phylogénétique · {n_samples} souches{f" · référence {reference_name}" if reference_name else ""}</p>
         </div>
     </div>
     <div class="header-right">
         <div class="date">{analysis_date}</div>
-        <div class="version">nanopore-snp-phylo v2.4</div>
+        <div class="version">nanopore-snp-phylo{f" v{pipeline_version}" if pipeline_version else ""}</div>
     </div>
 </header>
 
@@ -899,7 +986,7 @@ def build_report(fasta_path, tree_path, output_path, title,
             <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
             </svg>
-            <h2>Identification taxonomique (Kraken2)</h2>
+            <h2>Identification taxonomique (Kraken2 + Bracken)</h2>
         </div>
         <div class="section-body">
             {kraken_table}
@@ -919,7 +1006,7 @@ def build_report(fasta_path, tree_path, output_path, title,
     </div>
 
     <div class="phylo-section">
-        <h2>Arbre phylogénétique (IQ-TREE · GTR+G+ASC{"· Bootstrap 1000" if bootstrap_present else ""})</h2>
+        <h2>Arbre phylogénétique (IQ-TREE · GTR+G+ASC{" · Ultrafast bootstrap 1000" if bootstrap_present else ""})</h2>
         {tree_html}
     </div>
 
@@ -961,13 +1048,16 @@ def main():
     parser.add_argument("--mlst_dir",     default=None,   help="Dossier rapports MLST")
     parser.add_argument("--qualimap_dir", default=None,   help="Dossier rapports Qualimap")
     parser.add_argument("--checkm2_dir",  default=None,   help="Dossier rapports CheckM2")
+    parser.add_argument("--pipeline_version", default="", help="Version du pipeline (manifest.version)")
+    parser.add_argument("--reference_name", default="",   help="Nom de la souche de référence (exclue du nombre d'échantillons)")
     # Versions des logiciels (passées par le module Nextflow)
-    parser.add_argument("--version_nanofilt",  default="2.8.0")
+    parser.add_argument("--version_chopper",   default="0.9.0")
     parser.add_argument("--version_flye",      default="2.9.6")
     parser.add_argument("--version_medaka",    default="2.2.1")
     parser.add_argument("--version_ksnp4",     default="4.0")
     parser.add_argument("--version_iqtree",    default="2.4.0")
     parser.add_argument("--version_kraken2",   default="2.1.3")
+    parser.add_argument("--version_bracken",   default="3.1")
     parser.add_argument("--version_mlst",      default="2.23.0")
     parser.add_argument("--version_checkm2",   default="1.0.2")
     parser.add_argument("--version_quast",     default="5.2.0")
@@ -975,12 +1065,13 @@ def main():
     args = parser.parse_args()
 
     software_versions = {
-        "NanoFilt":  args.version_nanofilt,
+        "Chopper":   args.version_chopper,
         "Flye":      args.version_flye,
         "Medaka":    args.version_medaka,
         "kSNP4":     args.version_ksnp4,
         "IQ-TREE2":  args.version_iqtree,
         "Kraken2":   args.version_kraken2,
+        "Bracken":   args.version_bracken,
         "MLST":      args.version_mlst,
         "CheckM2":   args.version_checkm2,
         "QUAST":     args.version_quast,
@@ -997,6 +1088,8 @@ def main():
         qualimap_dir = args.qualimap_dir,
         checkm2_dir  = args.checkm2_dir,
         software_versions = software_versions,
+        reference_name    = args.reference_name or None,
+        pipeline_version  = args.pipeline_version,
     )
 
 

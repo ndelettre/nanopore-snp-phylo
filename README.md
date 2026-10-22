@@ -11,35 +11,36 @@ Ce pipeline analyse des souches bactériennes séquencées sur MinION (R10.4.1, 
 ### Workflow
 
 ```
-NANOFILT → NANOSTAT ──────────────────────────────────────────────── MULTIQC
-         → KRAKEN2 (identification taxonomique)                           ↑
+CHOPPER  → NANOSTAT ──────────────────────────────────────────────── MULTIQC
+         → KRAKEN2 → BRACKEN (identification taxonomique)                 ↑
          → FLYE → MEDAKA → QUALIMAP ────────────────────────────────────┤
                          → QUAST ────────────────────────────────────────┤
                          → MLST ─────────────────────────────────────────┤
                          → CHECKM2 ──────────────────────────────────────┤
-                         → KSNP4 → IQTREE → PHYLO_REPORT
+                         → KSNP4 → IQTREE ×2 → PHYLO_REPORT ×2 (tous les SNPs / SNPs core)
 ```
 
 ## Prérequis
 
 - [Nextflow](https://www.nextflow.io/) ≥ 22.10.0
 - [Docker](https://www.docker.com/)
-- Base de données Kraken2 PlusPF-8 (~8 GB)
+- Base de données Kraken2 PlusPF-16 (~15 GB sur disque et en RAM), avec ses fichiers `databaseXXXmers.kmer_distrib` pour Bracken (inclus dans les bases préconstruites)
 - Base de données CheckM2 (~2 GB)
 
 ### Téléchargement des bases de données
 
 ```bash
-# Kraken2 PlusPF-8
-mkdir -p /data/kraken2_db
-cd /data/kraken2_db
-wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_08gb_20241228.tar.gz
-tar -xzf k2_pluspf_08gb_20241228.tar.gz
-rm k2_pluspf_08gb_20241228.tar.gz
+# Kraken2 PlusPF-16 (version du 26/06/2026 ; nécessite 20 GB de RAM par tâche Kraken2)
+mkdir -p /data/databases/kraken2/kraken2_db
+cd /data/databases/kraken2/kraken2_db
+wget https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_16_GB_20260626.tar.gz
+tar -xzf k2_pluspf_16_GB_20260626.tar.gz
+rm k2_pluspf_16_GB_20260626.tar.gz
 
 # CheckM2
-mkdir -p /data/checkm2_db
-docker run --rm -v /data/checkm2_db:/data staphb/checkm2:1.0.2 \
+# (crée /data/databases/CheckM2_database/uniref100.KO.1.dmnd)
+mkdir -p /data/databases
+docker run --rm -v /data/databases:/data staphb/checkm2:1.0.2 \
     checkm2 database --download --path /data
 ```
 
@@ -56,8 +57,8 @@ docker run --rm -v /data/checkm2_db:/data staphb/checkm2:1.0.2 \
 ```bash
 nextflow run ndelettre/nanopore-snp-phylo \
     --fastq_dir /chemin/vers/fastq \
-    --kraken_db /data/kraken2_db \
-    --checkm2_db /data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd \
+    --kraken_db /data/databases/kraken2/kraken2_db \
+    --checkm2_db /data/databases/CheckM2_database/uniref100.KO.1.dmnd \
     --outdir output
 ```
 
@@ -68,8 +69,8 @@ nextflow run ndelettre/nanopore-snp-phylo \
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
 | `fastq_dir` | Dossier contenant les FASTQ (un fichier par barcode) | **obligatoire** |
-| `kraken_db` | Dossier de la base Kraken2 | `/data/kraken2_db` |
-| `checkm2_db` | Chemin vers le fichier `uniref100.KO.1.dmnd` | `/data/checkm2_db/CheckM2_database/uniref100.KO.1.dmnd` |
+| `kraken_db` | Dossier de la base Kraken2 | `/data/databases/kraken2/kraken2_db` |
+| `checkm2_db` | Chemin vers le fichier `uniref100.KO.1.dmnd` | `/data/databases/CheckM2_database/uniref100.KO.1.dmnd` |
 | `outdir` | Dossier de sortie des rapports HTML | `output` |
 | `resultsdir` | Dossier de sortie des fichiers intermédiaires | `results` |
 | `reference_fasta` | Optionnel : assemblage de référence (FASTA non compressé) ajouté au MLST et à kSNP4. Le nom du fichier jusqu'au premier point devient le nom de la souche | — |
@@ -78,7 +79,7 @@ nextflow run ndelettre/nanopore-snp-phylo \
 
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
-| `min_length` | Longueur minimale des reads (bp) | `200` |
+| `min_length` | Longueur minimale des reads (bp) | `1000` |
 | `min_quality` | Score de qualité minimum (Phred) | `10` |
 
 ### Assemblage et polissage
@@ -86,12 +87,13 @@ nextflow run ndelettre/nanopore-snp-phylo \
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
 | `genome_size` | Taille estimée du génome pour Flye | `5m` |
-| `medaka_model` | Modèle Medaka selon la flowcell et le basecalling | `r1041_e82_400bps_sup_v5.2.0` |
+| `medaka_model` | Modèle Medaka selon la flowcell et le basecalling | `r1041_e82_400bps_bacterial_methylation` |
 
 Modèles Medaka disponibles :
 
 | Flowcell | Kit | Mode | Modèle |
 |----------|-----|------|--------|
+| R10.4.1 | Kit 14 | ADN bactérien natif (méthylation) | `r1041_e82_400bps_bacterial_methylation` |
 | R10.4.1 | Kit 14 | SUP | `r1041_e82_400bps_sup_v5.2.0` |
 | R10.4.1 | Kit 14 | SUP | `r1041_e82_400bps_sup_v5.0.0` |
 | R10.4.1 | Kit 14 | HAC | `r1041_e82_400bps_hac_v5.2.0` |
@@ -102,7 +104,7 @@ Modèles Medaka disponibles :
 
 | Paramètre | Description | Défaut |
 |-----------|-------------|--------|
-| `bootstrap` | Activer le bootstrap IQ-TREE (nécessite ≥4 souches) | `true` |
+| `bootstrap` | Activer l'ultrafast bootstrap IQ-TREE (désactivé automatiquement en dessous de 4 souches) | `false` |
 
 ## Sorties
 
@@ -115,9 +117,10 @@ output/                          ← Rapports visibles dans EPI2ME
 └── pipeline_timeline.html       ← Chronologie d'exécution
 
 results/                         ← Fichiers intermédiaires
-├── nanofilt/                    ← Reads filtrés
+├── chopper/                     ← Reads filtrés
 ├── nanostat/                    ← Statistiques qualité des reads
 ├── kraken2/                     ← Rapports taxonomiques
+├── bracken/                     ← Abondances réestimées au rang espèce
 ├── flye/                        ← Assemblages bruts
 ├── medaka/                      ← Assemblages polishés
 ├── qualimap/                    ← QC du mapping BAM
@@ -125,32 +128,35 @@ results/                         ← Fichiers intermédiaires
 ├── mlst/                        ← Typage MLST
 ├── checkm2/                     ← Complétude et contamination
 ├── ksnp4/                       ← Alignements SNP
-└── iqtree/                      ← Arbre phylogénétique
+└── iqtree/                      ← Arbres phylogénétiques (un par rapport)
 ```
 
 ### Rapport phylogénétique
 
 Chaque rapport HTML contient :
 - **Contrôle qualité** — tableau par souche avec statut OK/NOK selon :
-  - Couverture ≥95% du génome à ≥30X (Qualimap)
+  - Couverture ≥95% du génome à ≥30X (Qualimap, reads remappés sur l'assemblage poli)
   - Complétude ≥99% (CheckM2)
   - Contamination <1% (CheckM2)
-- **Identification taxonomique** — espèces >1% par barcode (Kraken2)
+- **Identification taxonomique** — espèces >1% par barcode (Kraken2 + Bracken). Bracken réattribue à l'espèce les reads que Kraken2 laisse au rang genre ; il utilise la plus grande longueur de read disponible dans la base (300 pb pour les bases préconstruites)
 - **Typage MLST** — séquence type et allèles (schéma auto-détecté via PubMLST)
-- **Arbre phylogénétique** — ML enraciné au midpoint avec valeurs de bootstrap
-- **Matrice de distances SNP** — distances pairwise en nombre de SNPs
+- **Arbre phylogénétique** — ML enraciné au midpoint, avec valeurs d'ultrafast bootstrap si `--bootstrap` est activé (fiables à partir de 95)
+- **Matrice de distances SNP** — distances pairwise en nombre de SNPs. Les statistiques (min / moyenne / max) portent sur les échantillons du run, sans la référence
 
-Deux rapports sont produits :
-- `report_all_snps.html` — basé sur tous les SNPs détectés par kSNP4
-- `report_core_snps.html` — basé sur les SNPs core (présents dans toutes les souches)
+Le rapport est autonome : il s'ouvre et s'affiche sans connexion internet.
+
+Deux rapports sont produits, chacun avec son propre arbre IQ-TREE :
+- `report_all_snps.html` — basé sur tous les SNPs détectés par kSNP4 (`SNPs_all_matrix.fasta`). Les positions manquantes sont ignorées paire par paire : c'est la référence pour les distances entre souches, notamment avec une souche de référence éloignée
+- `report_core_snps.html` — basé sur les SNPs core (présents dans toutes les souches). Plus conservateur, mais une souche éloignée réduit le génome commun et peut sous-estimer les distances entre les autres souches. Il n'est pas produit s'il n'y a aucun SNP core
 
 ## Logiciels utilisés
 
 | Outil | Version | Usage |
 |-------|---------|-------|
-| NanoFilt | 2.8.0 | Filtrage qualité des reads |
+| Chopper | 0.9.0 | Filtrage qualité des reads |
 | NanoStat | 1.6.0 | Statistiques des reads |
 | Kraken2 | 2.1.3 | Identification taxonomique |
+| Bracken | 3.1 | Réestimation des abondances au rang espèce |
 | Flye | 2.9.6 | Assemblage de novo |
 | Medaka | 2.2.1 | Polissage des assemblages |
 | Qualimap | 2.3 | QC du mapping BAM |
@@ -163,8 +169,9 @@ Deux rapports sont produits :
 
 ## Notes
 
-- Une souche de référence déjà assemblée peut être ajoutée avec `--reference_fasta`. Elle apparaît dans l'arbre, la matrice SNP et le tableau MLST, avec « N/A » dans les tableaux QC et Kraken2. Son nom ne doit pas être identique à celui d'un échantillon du run, et elle compte dans les seuils de 3 et 4 souches ci-dessous.
-- Le pipeline requiert **au minimum 3 souches** pour produire un arbre phylogénétique, et **au minimum 4** pour le bootstrap.
+- Une souche de référence déjà assemblée peut être ajoutée avec `--reference_fasta`. Elle apparaît dans l'arbre, la matrice SNP et le tableau MLST, avec « N/A » dans le tableau QC. Dans l'identification taxonomique, son espèce est affichée (Kraken2 sur ses contigs, espèce couvrant le plus de paires de bases) avec « N/A » dans les autres colonnes. Elle n'est pas comptée dans le nombre d'échantillons du rapport. Son nom ne doit pas être identique à celui d'un échantillon du run, et elle compte dans les seuils de 3 et 4 souches ci-dessous.
+- Le pipeline requiert **au minimum 3 souches** pour produire un arbre phylogénétique, et **au minimum 4** pour le bootstrap (désactivé automatiquement en dessous).
+- Le pipeline s'arrête si une souche n'a plus aucun read après filtrage.
 - Le modèle Medaka doit correspondre à la flowcell et au mode de basecalling utilisés dans MinKNOW lors du séquençage.
 - Les bases de données Kraken2 et CheckM2 sont stockées en dehors du pipeline et réutilisées entre les runs.
 - Les assemblages NOK dans le rapport QC ne sont pas exclus automatiquement de la phylogénie — ils sont signalés pour information.

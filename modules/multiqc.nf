@@ -14,7 +14,6 @@
 
 process MULTIQC {
 
-    label 'process_low'
 
     publishDir "${params.outdir}",         mode: 'copy'
 

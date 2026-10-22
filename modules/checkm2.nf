@@ -5,20 +5,21 @@
     Évalue la complétude et la contamination de chaque assemblage via un modèle
     de deep learning entraîné sur des génomes bactériens de référence.
 
-    Seuils qualité standard (MIMAG) :
-      - Haute qualité  : complétude ≥90% ET contamination <5%
-      - Moyenne qualité : complétude ≥50% ET contamination <10%
-      - En dessous     : assemblage à exclure de l'analyse phylogénétique
+    Seuils appliqués dans le rapport (PHYLO_REPORT) :
+      - Complétude    ≥ 99%
+      - Contamination < 1%
+    Plus stricts que MIMAG (≥90% / <5%), adaptés à des isolats purs
+    séquencés en génome complet. Une souche hors seuils est signalée NOK
+    dans le rapport, mais n'est pas exclue de la phylogénie.
 
     Outil  : CheckM2
     Entrée : assemblages polishés (MEDAKA) — un par souche
     Sortie : rapport TSV avec complétude + contamination par souche
-             → intégré dans PHYLO_REPORT avec alertes visuelles
+             → intégré dans PHYLO_REPORT (statut OK/NOK)
 ========================================================================================
 */
 process CHECKM2 {
     tag "${sample_id}"
-    label 'process_medium'
     publishDir "${params.resultsdir}/checkm2", mode: 'copy'
 
     input:
